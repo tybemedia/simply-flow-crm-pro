@@ -58,8 +58,25 @@ const DealsPipeline = () => {
     }
   ]);
 
+  const [isNewDealOpen, setIsNewDealOpen] = useState(false);
+  const [newDeal, setNewDeal] = useState({
+    title: '',
+    customer: '',
+    value: '',
+    probability: '',
+    phase: 'Ersttermin',
+    assignedTo: '',
+    salesperson: '',
+    commissionPercentage: '',
+    closeDate: '',
+    status: 'Aktiv',
+    expirationDate: '',
+    description: ''
+  });
+
   const phases = ["Ersttermin", "Angebot versendet", "Verhandlung", "Abgeschlossen"];
   const statuses = ["Aktiv", "In Kooperation", "Erfolgreich abgeschlossen - Einmalig", "Gekündigt"];
+  const employees = ["Anna Schmidt", "Thomas Müller", "Sarah Weber", "Michael König"];
   
   const getPhaseColor = (phase: string) => {
     switch (phase) {
@@ -98,11 +115,11 @@ const DealsPipeline = () => {
     ));
   };
 
-  const calculateCommission = (dealValue, commissionPercentage) => {
+  const calculateCommission = (dealValue: number, commissionPercentage: number) => {
     return (dealValue * commissionPercentage) / 100;
   };
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
       case "Aktiv": return "bg-blue-500";
       case "In Kooperation": return "bg-green-500";
@@ -112,6 +129,41 @@ const DealsPipeline = () => {
     }
   };
 
+  const handleAddDeal = () => {
+    const deal = {
+      id: Date.now(),
+      title: newDeal.title,
+      customer: newDeal.customer,
+      value: parseInt(newDeal.value) || 0,
+      probability: parseInt(newDeal.probability) || 0,
+      phase: newDeal.phase,
+      assignedTo: newDeal.assignedTo,
+      salesperson: newDeal.salesperson || null,
+      commissionPercentage: parseInt(newDeal.commissionPercentage) || 0,
+      closeDate: newDeal.closeDate,
+      status: newDeal.status,
+      expirationDate: newDeal.expirationDate || null,
+      description: newDeal.description
+    };
+    
+    setDeals([...deals, deal]);
+    setNewDeal({
+      title: '',
+      customer: '',
+      value: '',
+      probability: '',
+      phase: 'Ersttermin',
+      assignedTo: '',
+      salesperson: '',
+      commissionPercentage: '',
+      closeDate: '',
+      status: 'Aktiv',
+      expirationDate: '',
+      description: ''
+    });
+    setIsNewDealOpen(false);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -119,7 +171,7 @@ const DealsPipeline = () => {
           <h2 className="text-3xl font-bold text-gray-900">Deals Pipeline</h2>
           <p className="text-gray-600">Verwalten Sie Ihre Verkaufschancen</p>
         </div>
-        <Dialog>
+        <Dialog open={isNewDealOpen} onOpenChange={setIsNewDealOpen}>
           <DialogTrigger asChild>
             <Button className="flex items-center gap-2">
               <Plus className="w-4 h-4" />
@@ -133,32 +185,49 @@ const DealsPipeline = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="title">Deal Titel</Label>
-                <Input id="title" placeholder="z.B. Webseite Redesign" />
+                <Input 
+                  id="title" 
+                  placeholder="z.B. Webseite Redesign"
+                  value={newDeal.title}
+                  onChange={(e) => setNewDeal({...newDeal, title: e.target.value})}
+                />
               </div>
               <div>
                 <Label htmlFor="customer">Kunde</Label>
-                <Select>
+                <Select value={newDeal.customer} onValueChange={(value) => setNewDeal({...newDeal, customer: value})}>
                   <SelectTrigger>
                     <SelectValue placeholder="Kunde auswählen" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="techcorp">TechCorp GmbH</SelectItem>
-                    <SelectItem value="design">Design Studio Plus</SelectItem>
-                    <SelectItem value="retail">Retail Solutions AG</SelectItem>
+                    <SelectItem value="TechCorp GmbH">TechCorp GmbH</SelectItem>
+                    <SelectItem value="Design Studio Plus">Design Studio Plus</SelectItem>
+                    <SelectItem value="Retail Solutions AG">Retail Solutions AG</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label htmlFor="value">Deal Wert (€)</Label>
-                <Input id="value" type="number" placeholder="0" />
+                <Input 
+                  id="value" 
+                  type="number" 
+                  placeholder="0"
+                  value={newDeal.value}
+                  onChange={(e) => setNewDeal({...newDeal, value: e.target.value})}
+                />
               </div>
               <div>
                 <Label htmlFor="probability">Wahrscheinlichkeit (%)</Label>
-                <Input id="probability" type="number" placeholder="50" />
+                <Input 
+                  id="probability" 
+                  type="number" 
+                  placeholder="50"
+                  value={newDeal.probability}
+                  onChange={(e) => setNewDeal({...newDeal, probability: e.target.value})}
+                />
               </div>
               <div>
                 <Label htmlFor="phase">Phase</Label>
-                <Select>
+                <Select value={newDeal.phase} onValueChange={(value) => setNewDeal({...newDeal, phase: value})}>
                   <SelectTrigger>
                     <SelectValue placeholder="Phase auswählen" />
                   </SelectTrigger>
@@ -171,30 +240,88 @@ const DealsPipeline = () => {
               </div>
               <div>
                 <Label htmlFor="assignedTo">Zugewiesen an</Label>
-                <Select>
+                <Select value={newDeal.assignedTo} onValueChange={(value) => setNewDeal({...newDeal, assignedTo: value})}>
                   <SelectTrigger>
                     <SelectValue placeholder="Mitarbeiter auswählen" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="anna">Anna Schmidt</SelectItem>
-                    <SelectItem value="thomas">Thomas Müller</SelectItem>
-                    <SelectItem value="sarah">Sarah Weber</SelectItem>
-                    <SelectItem value="michael">Michael König</SelectItem>
+                    {employees.map(employee => (
+                      <SelectItem key={employee} value={employee}>{employee}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="salesperson">Vertriebler (optional)</Label>
+                <Select value={newDeal.salesperson} onValueChange={(value) => setNewDeal({...newDeal, salesperson: value})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Vertriebler auswählen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Kein Vertriebler</SelectItem>
+                    {employees.map(employee => (
+                      <SelectItem key={employee} value={employee}>{employee}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="commission">Provision (%)</Label>
+                <Input 
+                  id="commission" 
+                  type="number" 
+                  placeholder="0"
+                  value={newDeal.commissionPercentage}
+                  onChange={(e) => setNewDeal({...newDeal, commissionPercentage: e.target.value})}
+                  disabled={!newDeal.salesperson}
+                />
+              </div>
+              <div>
+                <Label htmlFor="status">Status</Label>
+                <Select value={newDeal.status} onValueChange={(value) => setNewDeal({...newDeal, status: value})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statuses.map(status => (
+                      <SelectItem key={status} value={status}>{status}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label htmlFor="closeDate">Abschlussdatum</Label>
-                <Input id="closeDate" type="date" />
+                <Input 
+                  id="closeDate" 
+                  type="date"
+                  value={newDeal.closeDate}
+                  onChange={(e) => setNewDeal({...newDeal, closeDate: e.target.value})}
+                />
               </div>
+              {newDeal.status === "In Kooperation" && (
+                <div>
+                  <Label htmlFor="expirationDate">Auslaufdatum</Label>
+                  <Input 
+                    id="expirationDate" 
+                    type="date"
+                    value={newDeal.expirationDate}
+                    onChange={(e) => setNewDeal({...newDeal, expirationDate: e.target.value})}
+                  />
+                </div>
+              )}
               <div className="col-span-2">
                 <Label htmlFor="description">Beschreibung</Label>
-                <Textarea id="description" placeholder="Deal Beschreibung..." />
+                <Textarea 
+                  id="description" 
+                  placeholder="Deal Beschreibung..."
+                  value={newDeal.description}
+                  onChange={(e) => setNewDeal({...newDeal, description: e.target.value})}
+                />
               </div>
             </div>
             <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline">Abbrechen</Button>
-              <Button>Deal hinzufügen</Button>
+              <Button variant="outline" onClick={() => setIsNewDealOpen(false)}>Abbrechen</Button>
+              <Button onClick={handleAddDeal}>Deal hinzufügen</Button>
             </div>
           </DialogContent>
         </Dialog>
