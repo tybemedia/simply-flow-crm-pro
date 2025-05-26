@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Play, Pause, Clock, Calendar, User, AlertTriangle, CheckCircle2, Building, Settings } from 'lucide-react';
 import TaskEditDialog from './TaskEditDialog';
+import { getEmployeeNames } from '../data/employees';
 
 const TaskManager = () => {
   const [columns, setColumns] = useState([
@@ -96,6 +97,7 @@ const TaskManager = () => {
   const [selectedTask, setSelectedTask] = useState(null);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [draggedTask, setDraggedTask] = useState(null);
+  const employees = getEmployeeNames();
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -176,7 +178,11 @@ const TaskManager = () => {
     return new Date(deadline) < new Date();
   };
 
-  const handleTaskClick = (task) => {
+  const handleTaskClick = (task, event) => {
+    // Check if the click was on the start/stop button
+    if (event.target.closest('button')) {
+      return;
+    }
     setSelectedTask(task);
     setIsTaskDialogOpen(true);
   };
@@ -300,10 +306,9 @@ const TaskManager = () => {
                       <SelectValue placeholder="Mitarbeiter auswählen" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Anna Schmidt">Anna Schmidt</SelectItem>
-                      <SelectItem value="Thomas Müller">Thomas Müller</SelectItem>
-                      <SelectItem value="Sarah Weber">Sarah Weber</SelectItem>
-                      <SelectItem value="Michael König">Michael König</SelectItem>
+                      {employees.map(employee => (
+                        <SelectItem key={employee} value={employee || "unassigned"}>{employee}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -371,7 +376,7 @@ const TaskManager = () => {
                         className={`hover:shadow-md transition-shadow cursor-pointer ${isOverdue(task.deadline) ? "border-red-300" : ""}`}
                         draggable
                         onDragStart={(e) => handleDragStart(e, task)}
-                        onClick={() => handleTaskClick(task)}
+                        onClick={(e) => handleTaskClick(task, e)}
                       >
                         <CardContent className="p-4">
                           <div className="space-y-3">

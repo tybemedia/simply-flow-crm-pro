@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -6,7 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { User, Building, Calendar, Clock, MessageSquare, Send } from 'lucide-react';
+import { getEmployeeNames } from '../data/employees';
 
 interface Task {
   id: number;
@@ -39,6 +40,7 @@ interface TaskEditDialogProps {
 const TaskEditDialog = ({ task, isOpen, onClose, onSave }: TaskEditDialogProps) => {
   const [editedTask, setEditedTask] = useState<Task | null>(null);
   const [newComment, setNewComment] = useState("");
+  const employees = getEmployeeNames();
 
   React.useEffect(() => {
     if (task) {
@@ -150,10 +152,24 @@ const TaskEditDialog = ({ task, isOpen, onClose, onSave }: TaskEditDialogProps) 
           {/* Rechte Spalte - Metadaten */}
           <div className="space-y-4">
             <div className="bg-gray-50 p-4 rounded-lg space-y-3">
-              <div className="flex items-center gap-2 text-sm">
-                <User className="w-4 h-4 text-gray-500" />
-                <span className="text-gray-600">Zugewiesen:</span>
-                <span className="font-medium">{editedTask.assignedTo}</span>
+              <div className="space-y-2">
+                <Label htmlFor="assignedTo" className="flex items-center gap-2 text-sm">
+                  <User className="w-4 h-4 text-gray-500" />
+                  <span>Zugewiesen an:</span>
+                </Label>
+                <Select
+                  value={editedTask.assignedTo}
+                  onValueChange={(value) => setEditedTask({...editedTask, assignedTo: value})}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Mitarbeiter auswählen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employees.map(employee => (
+                      <SelectItem key={employee} value={employee || "unassigned"}>{employee}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {editedTask.customer && (
@@ -166,10 +182,17 @@ const TaskEditDialog = ({ task, isOpen, onClose, onSave }: TaskEditDialogProps) 
                 </div>
               )}
 
-              <div className="flex items-center gap-2 text-sm">
-                <Calendar className="w-4 h-4 text-gray-500" />
-                <span className="text-gray-600">Deadline:</span>
-                <span className="font-medium">{editedTask.deadline}</span>
+              <div className="space-y-2">
+                <Label htmlFor="deadline" className="flex items-center gap-2 text-sm">
+                  <Calendar className="w-4 h-4 text-gray-500" />
+                  <span>Deadline:</span>
+                </Label>
+                <Input
+                  id="deadline"
+                  type="date"
+                  value={editedTask.deadline}
+                  onChange={(e) => setEditedTask({...editedTask, deadline: e.target.value})}
+                />
               </div>
 
               <div className="flex items-center gap-2 text-sm">
