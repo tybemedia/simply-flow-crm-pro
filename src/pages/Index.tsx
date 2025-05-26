@@ -5,13 +5,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Users, Target, CheckSquare, FileText, TrendingUp, DollarSign, Clock, Calendar } from 'lucide-react';
+import { Plus, Users, Target, CheckSquare, FileText, TrendingUp, DollarSign, Clock, Calendar, UserCheck } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import Dashboard from '@/components/Dashboard';
 import CustomerList from '@/components/CustomerList';
 import DealsPipeline from '@/components/DealsPipeline';
 import TaskManager from '@/components/TaskManager';
 import InvoiceManager from '@/components/InvoiceManager';
+import ContactsManager from '@/components/ContactsManager';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -27,7 +28,7 @@ const Index = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-8">
+          <TabsList className="grid w-full grid-cols-6 mb-8">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4" />
               Dashboard
@@ -35,6 +36,10 @@ const Index = () => {
             <TabsTrigger value="customers" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
               Kunden
+            </TabsTrigger>
+            <TabsTrigger value="contacts" className="flex items-center gap-2">
+              <UserCheck className="w-4 h-4" />
+              Kontakte
             </TabsTrigger>
             <TabsTrigger value="deals" className="flex items-center gap-2">
               <Target className="w-4 h-4" />
@@ -56,6 +61,10 @@ const Index = () => {
 
           <TabsContent value="customers">
             <CustomerList />
+          </TabsContent>
+
+          <TabsContent value="contacts">
+            <ContactsManager />
           </TabsContent>
 
           <TabsContent value="deals">

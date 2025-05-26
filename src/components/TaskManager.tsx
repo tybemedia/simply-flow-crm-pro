@@ -8,17 +8,23 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Progress } from '@/components/ui/progress';
-import { Plus, Play, Pause, Square, Clock, Calendar, User, AlertTriangle, CheckCircle2, Circle } from 'lucide-react';
+import { Plus, Play, Pause, Clock, Calendar, User, AlertTriangle, CheckCircle2, Building, Settings } from 'lucide-react';
 
 const TaskManager = () => {
+  const [columns, setColumns] = useState([
+    { id: 'general', title: 'Allgemein', color: 'bg-gray-500' },
+    { id: 'webdesign', title: 'Webdesign', color: 'bg-blue-500' },
+    { id: 'media', title: 'Medien', color: 'bg-purple-500' },
+    { id: 'ideas', title: 'Projektideen', color: 'bg-green-500' }
+  ]);
+
   const [tasks, setTasks] = useState([
     {
       id: 1,
       title: "Webseite Mockups erstellen",
       description: "Erste Entwürfe für die TechCorp Webseite erstellen",
       priority: "Hoch",
-      status: "In Bearbeitung",
+      columnId: "webdesign",
       assignedTo: "Anna Schmidt",
       customer: "TechCorp GmbH",
       deadline: "2024-01-25",
@@ -29,14 +35,14 @@ const TaskManager = () => {
     },
     {
       id: 2,
-      title: "Kundentermin vorbereiten",
-      description: "Präsentation für Design Studio Plus vorbereiten",
+      title: "Video Konzept entwickeln",
+      description: "Konzept für Produktvideo erstellen",
       priority: "Mittel",
-      status: "Zu erledigen",
+      columnId: "media",
       assignedTo: "Sarah Weber",
       customer: "Design Studio Plus",
       deadline: "2024-01-22",
-      estimatedHours: 2,
+      estimatedHours: 4,
       trackedTime: 0,
       isTimerRunning: false,
       timerStart: null
@@ -46,32 +52,47 @@ const TaskManager = () => {
       title: "E-Commerce Integration testen",
       description: "Payment Gateway und Checkout-Prozess testen",
       priority: "Hoch",
-      status: "In Bearbeitung",
+      columnId: "webdesign",
       assignedTo: "Thomas Müller",
       customer: "Retail Solutions AG",
       deadline: "2024-01-28",
       estimatedHours: 12,
       trackedTime: 7.2,
       isTimerRunning: true,
-      timerStart: Date.now() - 1800000 // 30 Minuten ago
+      timerStart: Date.now() - 1800000
     },
     {
       id: 4,
-      title: "Logo Konzepte entwickeln",
-      description: "3 verschiedene Logo-Varianten für neuen Kunden",
+      title: "Team Meeting organisieren",
+      description: "Wöchentliches Team Meeting planen",
       priority: "Niedrig",
-      status: "Abgeschlossen",
+      columnId: "general",
       assignedTo: "Michael König",
-      customer: "StartUp XYZ",
+      customer: null,
       deadline: "2024-01-20",
+      estimatedHours: 1,
+      trackedTime: 0.5,
+      isTimerRunning: false,
+      timerStart: null
+    },
+    {
+      id: 5,
+      title: "Mobile App Idee",
+      description: "Konzept für neue Mobile App entwickeln",
+      priority: "Niedrig",
+      columnId: "ideas",
+      assignedTo: "Anna Schmidt",
+      customer: null,
+      deadline: "2024-02-15",
       estimatedHours: 6,
-      trackedTime: 5.8,
+      trackedTime: 1,
       isTimerRunning: false,
       timerStart: null
     }
   ]);
 
   const [currentTimes, setCurrentTimes] = useState({});
+  const [newColumnTitle, setNewColumnTitle] = useState("");
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -80,7 +101,7 @@ const TaskManager = () => {
       
       tasks.forEach(task => {
         if (task.isTimerRunning && task.timerStart) {
-          const additionalTime = (now - task.timerStart) / (1000 * 60 * 60); // in hours
+          const additionalTime = (now - task.timerStart) / (1000 * 60 * 60);
           newCurrentTimes[task.id] = task.trackedTime + additionalTime;
         } else {
           newCurrentTimes[task.id] = task.trackedTime;
@@ -102,24 +123,6 @@ const TaskManager = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Zu erledigen": return "bg-gray-500";
-      case "In Bearbeitung": return "bg-blue-500";
-      case "Abgeschlossen": return "bg-green-500";
-      default: return "bg-gray-500";
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "Zu erledigen": return Circle;
-      case "In Bearbeitung": return Clock;
-      case "Abgeschlossen": return CheckCircle2;
-      default: return Circle;
-    }
-  };
-
   const formatTime = (hours: number) => {
     const h = Math.floor(hours);
     const m = Math.floor((hours - h) * 60);
@@ -130,7 +133,6 @@ const TaskManager = () => {
     setTasks(tasks.map(task => {
       if (task.id === taskId) {
         if (task.isTimerRunning) {
-          // Stop timer and update tracked time
           const now = Date.now();
           const additionalTime = (now - task.timerStart) / (1000 * 60 * 60);
           return {
@@ -140,12 +142,10 @@ const TaskManager = () => {
             trackedTime: task.trackedTime + additionalTime
           };
         } else {
-          // Start timer
           return {
             ...task,
             isTimerRunning: true,
-            timerStart: Date.now(),
-            status: task.status === "Zu erledigen" ? "In Bearbeitung" : task.status
+            timerStart: Date.now()
           };
         }
       }
@@ -153,18 +153,24 @@ const TaskManager = () => {
     }));
   };
 
-  const updateTaskStatus = (taskId: number, newStatus: string) => {
-    setTasks(tasks.map(task => 
-      task.id === taskId ? { ...task, status: newStatus } : task
-    ));
+  const addColumn = () => {
+    if (newColumnTitle.trim()) {
+      const newColumn = {
+        id: `column_${Date.now()}`,
+        title: newColumnTitle.trim(),
+        color: 'bg-indigo-500'
+      };
+      setColumns([...columns, newColumn]);
+      setNewColumnTitle("");
+    }
+  };
+
+  const getTasksForColumn = (columnId: string) => {
+    return tasks.filter(task => task.columnId === columnId);
   };
 
   const isOverdue = (deadline: string) => {
     return new Date(deadline) < new Date();
-  };
-
-  const getTasksByStatus = (status: string) => {
-    return tasks.filter(task => task.status === status);
   };
 
   return (
@@ -172,222 +178,236 @@ const TaskManager = () => {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-bold text-gray-900">Aufgaben</h2>
-          <p className="text-gray-600">Verwalten Sie Ihre Aufgaben und Projekte</p>
+          <p className="text-gray-600">Kanban-Board für Ihr Aufgabenmanagement</p>
         </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-2">
-              <Plus className="w-4 h-4" />
-              Neue Aufgabe
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Neue Aufgabe hinzufügen</DialogTitle>
-            </DialogHeader>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <Label htmlFor="title">Aufgaben Titel</Label>
-                <Input id="title" placeholder="z.B. Konzept erstellen" />
+        <div className="flex gap-2">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2">
+                <Settings className="w-4 h-4" />
+                Spalte hinzufügen
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Neue Spalte hinzufügen</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="columnTitle">Spalten-Titel</Label>
+                  <Input
+                    id="columnTitle"
+                    value={newColumnTitle}
+                    onChange={(e) => setNewColumnTitle(e.target.value)}
+                    placeholder="z.B. Marketing, Development..."
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline">Abbrechen</Button>
+                  <Button onClick={addColumn}>Spalte hinzufügen</Button>
+                </div>
               </div>
-              <div className="col-span-2">
-                <Label htmlFor="description">Beschreibung</Label>
-                <Textarea id="description" placeholder="Aufgaben Beschreibung..." />
+            </DialogContent>
+          </Dialog>
+          
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-2">
+                <Plus className="w-4 h-4" />
+                Neue Aufgabe
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Neue Aufgabe hinzufügen</DialogTitle>
+              </DialogHeader>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <Label htmlFor="title">Aufgaben Titel</Label>
+                  <Input id="title" placeholder="z.B. Konzept erstellen" />
+                </div>
+                <div className="col-span-2">
+                  <Label htmlFor="description">Beschreibung</Label>
+                  <Textarea id="description" placeholder="Aufgaben Beschreibung..." />
+                </div>
+                <div>
+                  <Label htmlFor="column">Spalte</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Spalte auswählen" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {columns.map(column => (
+                        <SelectItem key={column.id} value={column.id}>{column.title}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="priority">Priorität</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Priorität auswählen" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Hoch">Hoch</SelectItem>
+                      <SelectItem value="Mittel">Mittel</SelectItem>
+                      <SelectItem value="Niedrig">Niedrig</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="assignedTo">Zugewiesen an</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Mitarbeiter auswählen" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Anna Schmidt">Anna Schmidt</SelectItem>
+                      <SelectItem value="Thomas Müller">Thomas Müller</SelectItem>
+                      <SelectItem value="Sarah Weber">Sarah Weber</SelectItem>
+                      <SelectItem value="Michael König">Michael König</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="customer">Kunde (optional)</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Kunde auswählen" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Kein Kunde</SelectItem>
+                      <SelectItem value="TechCorp GmbH">TechCorp GmbH</SelectItem>
+                      <SelectItem value="Design Studio Plus">Design Studio Plus</SelectItem>
+                      <SelectItem value="Retail Solutions AG">Retail Solutions AG</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="deadline">Deadline</Label>
+                  <Input id="deadline" type="date" />
+                </div>
+                <div>
+                  <Label htmlFor="estimatedHours">Geschätzte Stunden</Label>
+                  <Input id="estimatedHours" type="number" placeholder="0" />
+                </div>
               </div>
-              <div>
-                <Label htmlFor="priority">Priorität</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Priorität auswählen" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Hoch">Hoch</SelectItem>
-                    <SelectItem value="Mittel">Mittel</SelectItem>
-                    <SelectItem value="Niedrig">Niedrig</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="flex justify-end gap-2 mt-4">
+                <Button variant="outline">Abbrechen</Button>
+                <Button>Aufgabe hinzufügen</Button>
               </div>
-              <div>
-                <Label htmlFor="assignedTo">Zugewiesen an</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Mitarbeiter auswählen" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Anna Schmidt">Anna Schmidt</SelectItem>
-                    <SelectItem value="Thomas Müller">Thomas Müller</SelectItem>
-                    <SelectItem value="Sarah Weber">Sarah Weber</SelectItem>
-                    <SelectItem value="Michael König">Michael König</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="customer">Kunde</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Kunde auswählen" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="TechCorp GmbH">TechCorp GmbH</SelectItem>
-                    <SelectItem value="Design Studio Plus">Design Studio Plus</SelectItem>
-                    <SelectItem value="Retail Solutions AG">Retail Solutions AG</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="deadline">Deadline</Label>
-                <Input id="deadline" type="date" />
-              </div>
-              <div>
-                <Label htmlFor="estimatedHours">Geschätzte Stunden</Label>
-                <Input id="estimatedHours" type="number" placeholder="0" />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline">Abbrechen</Button>
-              <Button>Aufgabe hinzufügen</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
-      {/* Task Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-blue-600">{getTasksByStatus("Zu erledigen").length}</div>
-            <div className="text-sm text-gray-600">Zu erledigen</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-orange-600">{getTasksByStatus("In Bearbeitung").length}</div>
-            <div className="text-sm text-gray-600">In Bearbeitung</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-green-600">{getTasksByStatus("Abgeschlossen").length}</div>
-            <div className="text-sm text-gray-600">Abgeschlossen</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Tasks List */}
-      <div className="space-y-4">
-        {tasks.map((task) => {
-          const StatusIcon = getStatusIcon(task.status);
-          const currentTime = currentTimes[task.id] || task.trackedTime;
-          const progress = task.estimatedHours > 0 ? (currentTime / task.estimatedHours) * 100 : 0;
+      {/* Kanban Board */}
+      <div className="flex gap-6 overflow-x-auto pb-6">
+        {columns.map((column) => {
+          const columnTasks = getTasksForColumn(column.id);
           
           return (
-            <Card key={task.id} className={`hover:shadow-lg transition-shadow ${isOverdue(task.deadline) && task.status !== "Abgeschlossen" ? "border-red-300" : ""}`}>
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <StatusIcon className={`w-5 h-5 ${task.status === "Abgeschlossen" ? "text-green-600" : "text-gray-600"}`} />
-                      <h3 className="font-semibold text-lg text-gray-900">{task.title}</h3>
-                      <Badge className={`${getPriorityColor(task.priority)} text-white`}>
-                        {task.priority}
-                      </Badge>
-                      <Badge className={`${getStatusColor(task.status)} text-white`}>
-                        {task.status}
-                      </Badge>
-                      {isOverdue(task.deadline) && task.status !== "Abgeschlossen" && (
-                        <Badge className="bg-red-500 text-white flex items-center gap-1">
-                          <AlertTriangle className="w-3 h-3" />
-                          Überfällig
-                        </Badge>
-                      )}
-                    </div>
+            <div key={column.id} className="flex-shrink-0 w-80">
+              <Card className="h-full">
+                <CardHeader className={`${column.color} text-white rounded-t-lg`}>
+                  <CardTitle className="text-lg flex items-center justify-between">
+                    {column.title}
+                    <Badge variant="secondary" className="bg-white text-gray-800">
+                      {columnTasks.length}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 space-y-4 min-h-96">
+                  {columnTasks.map((task) => {
+                    const currentTime = currentTimes[task.id] || task.trackedTime;
+                    const progress = task.estimatedHours > 0 ? (currentTime / task.estimatedHours) * 100 : 0;
                     
-                    <p className="text-gray-600 mb-4">{task.description}</p>
-                    
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                      <div className="flex items-center space-x-2 text-sm">
-                        <User className="w-4 h-4 text-gray-500" />
-                        <span>{task.assignedTo}</span>
-                      </div>
-                      <div className="flex items-center space-x-2 text-sm">
-                        <Calendar className="w-4 h-4 text-gray-500" />
-                        <span>{task.deadline}</span>
-                      </div>
-                      <div className="text-sm">
-                        <span className="text-gray-500">Kunde: </span>
-                        <span className="font-medium">{task.customer}</span>
-                      </div>
-                      <div className="text-sm">
-                        <span className="text-gray-500">Zeit: </span>
-                        <span className="font-medium">
-                          {formatTime(currentTime)} / {formatTime(task.estimatedHours)}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Time Progress */}
-                    <div className="mb-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm text-gray-600">Zeitfortschritt</span>
-                        <span className="text-sm text-gray-600">{Math.round(progress)}%</span>
-                      </div>
-                      <Progress 
-                        value={Math.min(progress, 100)} 
-                        className={`h-2 ${progress > 100 ? "bg-red-100" : ""}`}
-                      />
-                      {progress > 100 && (
-                        <div className="text-xs text-red-600 mt-1">
-                          Geschätzte Zeit überschritten
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-end space-y-2 ml-4">
-                    {/* Timer Controls */}
-                    <div className="flex items-center space-x-2">
-                      {task.isTimerRunning ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => toggleTimer(task.id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Pause className="w-4 h-4 mr-1" />
-                          Stopp
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => toggleTimer(task.id)}
-                          className="text-green-600 hover:text-green-700"
-                          disabled={task.status === "Abgeschlossen"}
-                        >
-                          <Play className="w-4 h-4 mr-1" />
-                          Start
-                        </Button>
-                      )}
-                    </div>
-
-                    {/* Status Controls */}
-                    <div className="flex space-x-2">
-                      {task.status !== "Abgeschlossen" && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => updateTaskStatus(task.id, "Abgeschlossen")}
-                          className="text-green-600 hover:text-green-700"
-                        >
-                          <CheckCircle2 className="w-4 h-4 mr-1" />
-                          Abschließen
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                    return (
+                      <Card key={task.id} className={`hover:shadow-md transition-shadow ${isOverdue(task.deadline) ? "border-red-300" : ""}`}>
+                        <CardContent className="p-4">
+                          <div className="space-y-3">
+                            <div className="flex items-start justify-between">
+                              <h4 className="font-semibold text-sm">{task.title}</h4>
+                              <Badge className={`${getPriorityColor(task.priority)} text-white text-xs`}>
+                                {task.priority}
+                              </Badge>
+                            </div>
+                            
+                            <p className="text-xs text-gray-600 line-clamp-2">{task.description}</p>
+                            
+                            {task.customer && (
+                              <div className="flex items-center space-x-1 text-xs text-gray-500">
+                                <Building className="w-3 h-3" />
+                                <span>{task.customer}</span>
+                              </div>
+                            )}
+                            
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="flex items-center space-x-1">
+                                <User className="w-3 h-3" />
+                                <span>{task.assignedTo}</span>
+                              </div>
+                              <div className="flex items-center space-x-1">
+                                <Calendar className="w-3 h-3" />
+                                <span>{task.deadline}</span>
+                                {isOverdue(task.deadline) && (
+                                  <AlertTriangle className="w-3 h-3 text-red-500" />
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-xs">
+                                <span>Zeit: {formatTime(currentTime)} / {formatTime(task.estimatedHours)}</span>
+                                <span>{Math.round(progress)}%</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-1">
+                                <div 
+                                  className={`h-1 rounded-full ${progress > 100 ? "bg-red-500" : "bg-blue-500"}`}
+                                  style={{ width: `${Math.min(progress, 100)}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex justify-between items-center">
+                              {task.isTimerRunning ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => toggleTimer(task.id)}
+                                  className="text-red-600 hover:text-red-700 text-xs h-8"
+                                >
+                                  <Pause className="w-3 h-3 mr-1" />
+                                  Stopp
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => toggleTimer(task.id)}
+                                  className="text-green-600 hover:text-green-700 text-xs h-8"
+                                >
+                                  <Play className="w-3 h-3 mr-1" />
+                                  Start
+                                </Button>
+                              )}
+                              
+                              {task.isTimerRunning && (
+                                <div className="flex items-center space-x-1 text-xs text-green-600">
+                                  <Clock className="w-3 h-3" />
+                                  <span>Läuft</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            </div>
           );
         })}
       </div>
