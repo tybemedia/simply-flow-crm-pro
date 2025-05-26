@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Play, Pause, Clock, Calendar, User, AlertTriangle, CheckCircle2, Building, Settings } from 'lucide-react';
+import TaskEditDialog from './TaskEditDialog';
 
 const TaskManager = () => {
   const [columns, setColumns] = useState([
@@ -93,6 +93,9 @@ const TaskManager = () => {
 
   const [currentTimes, setCurrentTimes] = useState({});
   const [newColumnTitle, setNewColumnTitle] = useState("");
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+  const [draggedTask, setDraggedTask] = useState(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -171,6 +174,40 @@ const TaskManager = () => {
 
   const isOverdue = (deadline: string) => {
     return new Date(deadline) < new Date();
+  };
+
+  const handleTaskClick = (task) => {
+    setSelectedTask(task);
+    setIsTaskDialogOpen(true);
+  };
+
+  const handleTaskSave = (updatedTask) => {
+    setTasks(tasks.map(task => 
+      task.id === updatedTask.id ? updatedTask : task
+    ));
+    setSelectedTask(null);
+  };
+
+  const handleDragStart = (e, task) => {
+    setDraggedTask(task);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e, targetColumnId) => {
+    e.preventDefault();
+    if (draggedTask && draggedTask.columnId !== targetColumnId) {
+      setTasks(tasks.map(task => 
+        task.id === draggedTask.id 
+          ? { ...task, columnId: targetColumnId }
+          : task
+      ));
+    }
+    setDraggedTask(null);
   };
 
   return (
@@ -308,7 +345,12 @@ const TaskManager = () => {
           const columnTasks = getTasksForColumn(column.id);
           
           return (
-            <div key={column.id} className="flex-shrink-0 w-80">
+            <div 
+              key={column.id} 
+              className="flex-shrink-0 w-80"
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, column.id)}
+            >
               <Card className="h-full">
                 <CardHeader className={`${column.color} text-white rounded-t-lg`}>
                   <CardTitle className="text-lg flex items-center justify-between">
@@ -324,7 +366,13 @@ const TaskManager = () => {
                     const progress = task.estimatedHours > 0 ? (currentTime / task.estimatedHours) * 100 : 0;
                     
                     return (
-                      <Card key={task.id} className={`hover:shadow-md transition-shadow ${isOverdue(task.deadline) ? "border-red-300" : ""}`}>
+                      <Card 
+                        key={task.id} 
+                        className={`hover:shadow-md transition-shadow cursor-pointer ${isOverdue(task.deadline) ? "border-red-300" : ""}`}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, task)}
+                        onClick={() => handleTaskClick(task)}
+                      >
                         <CardContent className="p-4">
                           <div className="space-y-3">
                             <div className="flex items-start justify-between">
@@ -339,7 +387,9 @@ const TaskManager = () => {
                             {task.customer && (
                               <div className="flex items-center space-x-1 text-xs text-gray-500">
                                 <Building className="w-3 h-3" />
-                                <span>{task.customer}</span>
+                                <span className="text-blue-600 hover:underline cursor-pointer">
+                                  {task.customer}
+                                </span>
                               </div>
                             )}
                             
@@ -411,6 +461,13 @@ const TaskManager = () => {
           );
         })}
       </div>
+
+      <TaskEditDialog
+        task={selectedTask}
+        isOpen={isTaskDialogOpen}
+        onClose={() => setIsTaskDialogOpen(false)}
+        onSave={handleTaskSave}
+      />
     </div>
   );
 };

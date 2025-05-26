@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,7 +19,11 @@ const DealsPipeline = () => {
       probability: 80,
       phase: "Angebot versendet",
       assignedTo: "Anna Schmidt",
+      salesperson: "Michael König",
+      commissionPercentage: 5,
       closeDate: "2024-02-15",
+      status: "Aktiv",
+      expirationDate: null,
       description: "Komplettes Redesign der Unternehmenswebseite mit moderner Technologie"
     },
     {
@@ -31,7 +34,11 @@ const DealsPipeline = () => {
       probability: 90,
       phase: "Verhandlung",
       assignedTo: "Thomas Müller",
+      salesperson: "Anna Schmidt",
+      commissionPercentage: 8,
       closeDate: "2024-02-28",
+      status: "In Kooperation",
+      expirationDate: "2025-02-28",
       description: "Entwicklung einer maßgeschneiderten E-Commerce Lösung"
     },
     {
@@ -42,23 +49,17 @@ const DealsPipeline = () => {
       probability: 60,
       phase: "Ersttermin",
       assignedTo: "Sarah Weber",
+      salesperson: null,
+      commissionPercentage: 0,
       closeDate: "2024-03-10",
+      status: "Aktiv",
+      expirationDate: null,
       description: "Entwicklung einer neuen Markenidentität und Logodesign"
-    },
-    {
-      id: 4,
-      title: "Mobile App",
-      customer: "TechCorp GmbH",
-      value: 67800,
-      probability: 70,
-      phase: "Angebot versendet",
-      assignedTo: "Michael König",
-      closeDate: "2024-03-20",
-      description: "Native Mobile App für iOS und Android"
     }
   ]);
 
   const phases = ["Ersttermin", "Angebot versendet", "Verhandlung", "Abgeschlossen"];
+  const statuses = ["Aktiv", "In Kooperation", "Erfolgreich abgeschlossen - Einmalig", "Gekündigt"];
   
   const getPhaseColor = (phase: string) => {
     switch (phase) {
@@ -95,6 +96,20 @@ const DealsPipeline = () => {
     setDeals(deals.map(deal => 
       deal.id === dealId ? { ...deal, phase: newPhase } : deal
     ));
+  };
+
+  const calculateCommission = (dealValue, commissionPercentage) => {
+    return (dealValue * commissionPercentage) / 100;
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "Aktiv": return "bg-blue-500";
+      case "In Kooperation": return "bg-green-500";
+      case "Erfolgreich abgeschlossen - Einmalig": return "bg-purple-500";
+      case "Gekündigt": return "bg-red-500";
+      default: return "bg-gray-500";
+    }
   };
 
   return (
@@ -225,7 +240,9 @@ const DealsPipeline = () => {
                           <h4 className="font-semibold text-gray-900">{deal.title}</h4>
                           <p className="text-sm text-gray-600 flex items-center gap-1">
                             <Building className="w-3 h-3" />
-                            {deal.customer}
+                            <span className="text-blue-600 hover:underline cursor-pointer">
+                              {deal.customer}
+                            </span>
                           </p>
                         </div>
                         
@@ -241,6 +258,20 @@ const DealsPipeline = () => {
                           </div>
                           
                           <div className="flex items-center justify-between text-sm">
+                            <span>Status:</span>
+                            <Badge className={`${getStatusColor(deal.status)} text-white text-xs`}>
+                              {deal.status}
+                            </Badge>
+                          </div>
+
+                          {deal.expirationDate && (
+                            <div className="flex items-center justify-between text-sm">
+                              <span>Läuft aus:</span>
+                              <span className="text-orange-600 font-medium">{deal.expirationDate}</span>
+                            </div>
+                          )}
+                          
+                          <div className="flex items-center justify-between text-sm">
                             <span>Wahrscheinlichkeit:</span>
                             <span className={`font-semibold ${getProbabilityColor(deal.probability)}`}>
                               {deal.probability}%
@@ -250,10 +281,25 @@ const DealsPipeline = () => {
                           <div className="flex items-center justify-between text-sm">
                             <span className="flex items-center gap-1">
                               <User className="w-3 h-3" />
-                              Bearbeiter:
+                              Zuständig:
                             </span>
                             <span className="font-medium">{deal.assignedTo}</span>
                           </div>
+
+                          {deal.salesperson && (
+                            <>
+                              <div className="flex items-center justify-between text-sm">
+                                <span>Vertrieb:</span>
+                                <span className="font-medium text-purple-600">{deal.salesperson}</span>
+                              </div>
+                              <div className="flex items-center justify-between text-sm">
+                                <span>Provision:</span>
+                                <span className="font-semibold text-green-600">
+                                  {formatCurrency(calculateCommission(deal.value, deal.commissionPercentage))} ({deal.commissionPercentage}%)
+                                </span>
+                              </div>
+                            </>
+                          )}
                           
                           <div className="flex items-center justify-between text-sm">
                             <span className="flex items-center gap-1">

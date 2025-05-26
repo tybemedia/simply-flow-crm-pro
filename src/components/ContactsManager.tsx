@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Mail, Phone, Building, User, Search } from 'lucide-react';
+import ContactEditDialog from './ContactEditDialog';
 
 const ContactsManager = () => {
   const [contacts, setContacts] = useState([
@@ -66,6 +66,8 @@ const ContactsManager = () => {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("Alle");
+  const [selectedContact, setSelectedContact] = useState(null);
+  const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
 
   const filteredContacts = contacts.filter(contact => {
     const matchesSearch = contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -81,6 +83,18 @@ const ContactsManager = () => {
       case "Dienstleister": return "bg-green-500";
       default: return "bg-gray-500";
     }
+  };
+
+  const handleContactClick = (contact) => {
+    setSelectedContact(contact);
+    setIsContactDialogOpen(true);
+  };
+
+  const handleContactSave = (updatedContact) => {
+    setContacts(contacts.map(contact => 
+      contact.id === updatedContact.id ? updatedContact : contact
+    ));
+    setSelectedContact(null);
   };
 
   return (
@@ -218,7 +232,7 @@ const ContactsManager = () => {
             </TableHeader>
             <TableBody>
               {filteredContacts.map((contact) => (
-                <TableRow key={contact.id}>
+                <TableRow key={contact.id} className="cursor-pointer hover:bg-gray-50" onClick={() => handleContactClick(contact)}>
                   <TableCell>
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
@@ -233,7 +247,7 @@ const ContactsManager = () => {
                     {contact.company ? (
                       <div className="flex items-center space-x-2">
                         <Building className="h-4 w-4 text-gray-500" />
-                        <span>{contact.company}</span>
+                        <span className="text-blue-600 hover:underline">{contact.company}</span>
                       </div>
                     ) : (
                       <span className="text-gray-400">Kein Unternehmen</span>
@@ -268,7 +282,7 @@ const ContactsManager = () => {
                   </TableCell>
                   <TableCell>
                     <div className="flex space-x-2">
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleContactClick(contact); }}>
                         Bearbeiten
                       </Button>
                     </div>
@@ -279,6 +293,13 @@ const ContactsManager = () => {
           </Table>
         </CardContent>
       </Card>
+
+      <ContactEditDialog
+        contact={selectedContact}
+        isOpen={isContactDialogOpen}
+        onClose={() => setIsContactDialogOpen(false)}
+        onSave={handleContactSave}
+      />
     </div>
   );
 };
