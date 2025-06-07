@@ -11,6 +11,29 @@ import { Plus, Play, Pause, Clock, Calendar, User, AlertTriangle, CheckCircle2, 
 import TaskEditDialog from './TaskEditDialog';
 import { getEmployeeNames } from '../data/employees';
 
+// Define Task type directly in the component
+export interface Task {
+  id: number;
+  title: string;
+  description: string;
+  priority: 'Hoch' | 'Mittel' | 'Niedrig';
+  columnId: string; // Mapped from column_id
+  assignedTo: string; // Mapped from assigned_to
+  customer: string | null;
+  deadline: string;
+  estimatedHours: number; // Mapped from estimated_hours
+  trackedTime: number; // Mapped from tracked_time
+  isTimerRunning: boolean; // Mapped from is_timer_running
+  timerStart: number | null; // Mapped from timer_start
+  // DB fields
+  column_id?: string;
+  assigned_to?: string;
+  estimated_hours?: number;
+  tracked_time?: number;
+  is_timer_running?: boolean;
+  timer_start?: number | null;
+}
+
 const TaskManager = () => {
   const [columns, setColumns] = useState([
     { id: 'general', title: 'Allgemein', color: 'bg-gray-500' },
@@ -19,85 +42,52 @@ const TaskManager = () => {
     { id: 'ideas', title: 'Projektideen', color: 'bg-green-500' }
   ]);
 
-  const [tasks, setTasks] = useState([
-    {
-      id: 1,
-      title: "Webseite Mockups erstellen",
-      description: "Erste Entwürfe für die TechCorp Webseite erstellen",
-      priority: "Hoch",
-      columnId: "webdesign",
-      assignedTo: "Anna Schmidt",
-      customer: "TechCorp GmbH",
-      deadline: "2024-01-25",
-      estimatedHours: 8,
-      trackedTime: 3.5,
-      isTimerRunning: false,
-      timerStart: null
-    },
-    {
-      id: 2,
-      title: "Video Konzept entwickeln",
-      description: "Konzept für Produktvideo erstellen",
-      priority: "Mittel",
-      columnId: "media",
-      assignedTo: "Sarah Weber",
-      customer: "Design Studio Plus",
-      deadline: "2024-01-22",
-      estimatedHours: 4,
-      trackedTime: 0,
-      isTimerRunning: false,
-      timerStart: null
-    },
-    {
-      id: 3,
-      title: "E-Commerce Integration testen",
-      description: "Payment Gateway und Checkout-Prozess testen",
-      priority: "Hoch",
-      columnId: "webdesign",
-      assignedTo: "Thomas Müller",
-      customer: "Retail Solutions AG",
-      deadline: "2024-01-28",
-      estimatedHours: 12,
-      trackedTime: 7.2,
-      isTimerRunning: true,
-      timerStart: Date.now() - 1800000
-    },
-    {
-      id: 4,
-      title: "Team Meeting organisieren",
-      description: "Wöchentliches Team Meeting planen",
-      priority: "Niedrig",
-      columnId: "general",
-      assignedTo: "Michael König",
-      customer: null,
-      deadline: "2024-01-20",
-      estimatedHours: 1,
-      trackedTime: 0.5,
-      isTimerRunning: false,
-      timerStart: null
-    },
-    {
-      id: 5,
-      title: "Mobile App Idee",
-      description: "Konzept für neue Mobile App entwickeln",
-      priority: "Niedrig",
-      columnId: "ideas",
-      assignedTo: "Anna Schmidt",
-      customer: null,
-      deadline: "2024-02-15",
-      estimatedHours: 6,
-      trackedTime: 1,
-      isTimerRunning: false,
-      timerStart: null
-    }
-  ]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const response = await fetch('/api/tasks');
+        const data = await response.json();
+        // Map snake_case from DB to camelCase for frontend
+        const mappedData = data.map(task => ({
+          ...task,
+          columnId: task.column_id,
+          assignedTo: task.assigned_to,
+          estimatedHours: task.estimated_hours,
+          trackedTime: task.tracked_time,
+          isTimerRunning: task.is_timer_running,
+          timerStart: task.timer_start
+        }));
+        setTasks(mappedData);
+      } catch (error) {
+        console.error("Failed to fetch tasks:", error);
+      }
+    };
+    fetchTasks();
+  }, []);
 
   const [currentTimes, setCurrentTimes] = useState({});
   const [newColumnTitle, setNewColumnTitle] = useState("");
   const [selectedTask, setSelectedTask] = useState(null);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [draggedTask, setDraggedTask] = useState(null);
-  const employees = getEmployeeNames();
+  const [employees, setEmployees] = useState<string[]>([]);
+  const [isNewTaskDialogOpen, setIsNewTaskDialogOpen] = useState(false);
+  const [newTask, setNewTask] = useState({
+    title: "",
+    description: "",
+    columnId: "general",
+    priority: "Mittel",
+    assignedTo: "",
+    customer: null,
+    deadline: "",
+    estimatedHours: 0
+  });
+
+  useEffect(() => {
+    getEmployeeNames().then(setEmployees);
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -134,28 +124,50 @@ const TaskManager = () => {
     return `${h}h ${m}m`;
   };
 
-  const toggleTimer = (taskId: number) => {
-    setTasks(tasks.map(task => {
-      if (task.id === taskId) {
-        if (task.isTimerRunning) {
-          const now = Date.now();
-          const additionalTime = (now - task.timerStart) / (1000 * 60 * 60);
-          return {
-            ...task,
-            isTimerRunning: false,
-            timerStart: null,
-            trackedTime: task.trackedTime + additionalTime
-          };
-        } else {
-          return {
-            ...task,
-            isTimerRunning: true,
-            timerStart: Date.now()
-          };
-        }
-      }
-      return task;
-    }));
+  const toggleTimer = async (taskId: number) => {
+    let taskToUpdate = tasks.find(t => t.id === taskId);
+    if (!taskToUpdate) return;
+  
+    const now = Date.now();
+    let updatedFields;
+  
+    if (taskToUpdate.isTimerRunning) {
+      const additionalTime = (now - (taskToUpdate.timerStart || now)) / (1000 * 60 * 60);
+      updatedFields = {
+        is_timer_running: false,
+        timer_start: null,
+        tracked_time: (taskToUpdate.trackedTime || 0) + additionalTime
+      };
+    } else {
+      updatedFields = {
+        is_timer_running: true,
+        timer_start: now
+      };
+    }
+  
+    try {
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedFields),
+      });
+      if (!response.ok) throw new Error('Failed to update timer state.');
+  
+      const returnedTask = await response.json();
+      const mappedTask = {
+        ...returnedTask,
+        columnId: returnedTask.column_id,
+        assignedTo: returnedTask.assigned_to,
+        estimatedHours: returnedTask.estimated_hours,
+        trackedTime: returnedTask.tracked_time,
+        isTimerRunning: returnedTask.is_timer_running,
+        timerStart: returnedTask.timer_start,
+      };
+  
+      setTasks(tasks.map(task => (task.id === taskId ? mappedTask : task)));
+    } catch (error) {
+      console.error("Error toggling timer:", error);
+    }
   };
 
   const addColumn = () => {
@@ -180,18 +192,49 @@ const TaskManager = () => {
 
   const handleTaskClick = (task, event) => {
     // Check if the click was on the start/stop button
-    if (event.target.closest('button')) {
+    if (event.target.closest('button.timer-toggle')) {
       return;
     }
     setSelectedTask(task);
     setIsTaskDialogOpen(true);
   };
 
-  const handleTaskSave = (updatedTask) => {
-    setTasks(tasks.map(task => 
-      task.id === updatedTask.id ? updatedTask : task
-    ));
-    setSelectedTask(null);
+  const handleTaskSave = async (updatedTask) => {
+    try {
+      const response = await fetch(`/api/tasks/${updatedTask.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: updatedTask.title,
+          description: updatedTask.description,
+          priority: updatedTask.priority,
+          column_id: updatedTask.columnId,
+          assigned_to: updatedTask.assignedTo,
+          customer: updatedTask.customer,
+          deadline: updatedTask.deadline,
+          estimated_hours: updatedTask.estimatedHours,
+        }),
+      });
+      if (!response.ok) throw new Error('Failed to update task.');
+      
+      const returnedTask = await response.json();
+      const mappedTask = {
+          ...returnedTask,
+          columnId: returnedTask.column_id,
+          assignedTo: returnedTask.assigned_to,
+          estimatedHours: returnedTask.estimated_hours,
+          trackedTime: returnedTask.tracked_time,
+          isTimerRunning: returnedTask.is_timer_running,
+          timerStart: returnedTask.timer_start,
+      };
+
+      setTasks(tasks.map(task => 
+        task.id === mappedTask.id ? mappedTask : task
+      ));
+      setSelectedTask(null);
+    } catch (error) {
+      console.error("Error updating task:", error);
+    }
   };
 
   const handleDragStart = (e, task) => {
@@ -204,16 +247,103 @@ const TaskManager = () => {
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleDrop = (e, targetColumnId) => {
+  const handleDrop = async (e, targetColumnId) => {
     e.preventDefault();
     if (draggedTask && draggedTask.columnId !== targetColumnId) {
-      setTasks(tasks.map(task => 
-        task.id === draggedTask.id 
-          ? { ...task, columnId: targetColumnId }
-          : task
-      ));
+      try {
+        const response = await fetch(`/api/tasks/${draggedTask.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ column_id: targetColumnId }),
+        });
+        if (!response.ok) throw new Error('Failed to update task column.');
+        
+        const returnedTask = await response.json();
+        const mappedTask = {
+          ...returnedTask,
+          columnId: returnedTask.column_id,
+          assignedTo: returnedTask.assigned_to,
+          estimatedHours: returnedTask.estimated_hours,
+          trackedTime: returnedTask.tracked_time,
+          isTimerRunning: returnedTask.is_timer_running,
+          timerStart: returnedTask.timer_start,
+        };
+
+        setTasks(tasks.map(task => 
+          task.id === draggedTask.id 
+            ? mappedTask
+            : task
+        ));
+      } catch (error) {
+        console.error("Error updating task column:", error);
+      }
     }
     setDraggedTask(null);
+  };
+
+  const handleAddTask = async () => {
+    if (!newTask.title || !newTask.deadline || !newTask.assignedTo) {
+      alert("Bitte füllen Sie alle erforderlichen Felder aus (Titel, Zugewiesen an, Deadline).");
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newTask.title,
+          description: newTask.description,
+          priority: newTask.priority,
+          column_id: newTask.columnId,
+          assigned_to: newTask.assignedTo,
+          customer: newTask.customer,
+          deadline: newTask.deadline,
+          estimated_hours: newTask.estimatedHours,
+        }),
+      });
+      if (!response.ok) throw new Error('Failed to create task.');
+
+      const createdTask = await response.json();
+      const mappedTask = {
+        ...createdTask,
+        columnId: createdTask.column_id,
+        assignedTo: createdTask.assigned_to,
+        estimatedHours: createdTask.estimated_hours,
+        trackedTime: createdTask.tracked_time,
+        isTimerRunning: createdTask.is_timer_running,
+        timerStart: createdTask.timer_start,
+      };
+
+      setTasks(prevTasks => [...prevTasks, mappedTask]);
+      setIsNewTaskDialogOpen(false);
+      // Reset form
+      setNewTask({
+        title: "",
+        description: "",
+        columnId: "general",
+        priority: "Mittel",
+        assignedTo: "",
+        customer: null,
+        deadline: "",
+        estimatedHours: 0
+      });
+    } catch (error) {
+      console.error("Error creating task:", error);
+    }
+  };
+
+  const handleDeleteTask = async (taskId: number) => {
+    try {
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error('Failed to delete task.');
+
+      setTasks(tasks.filter(task => task.id !== taskId));
+    } catch (error) {
+      console.error("Error deleting task:", error);
+    }
   };
 
   return (
@@ -253,7 +383,7 @@ const TaskManager = () => {
             </DialogContent>
           </Dialog>
           
-          <Dialog>
+          <Dialog open={isNewTaskDialogOpen} onOpenChange={setIsNewTaskDialogOpen}>
             <DialogTrigger asChild>
               <Button className="flex items-center gap-2">
                 <Plus className="w-4 h-4" />
@@ -267,15 +397,15 @@ const TaskManager = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <Label htmlFor="title">Aufgaben Titel</Label>
-                  <Input id="title" placeholder="z.B. Konzept erstellen" />
+                  <Input id="title" placeholder="z.B. Konzept erstellen" value={newTask.title} onChange={e => setNewTask({...newTask, title: e.target.value})} />
                 </div>
                 <div className="col-span-2">
                   <Label htmlFor="description">Beschreibung</Label>
-                  <Textarea id="description" placeholder="Aufgaben Beschreibung..." />
+                  <Textarea id="description" placeholder="Aufgaben Beschreibung..." value={newTask.description} onChange={e => setNewTask({...newTask, description: e.target.value})} />
                 </div>
                 <div>
                   <Label htmlFor="column">Spalte</Label>
-                  <Select>
+                  <Select value={newTask.columnId} onValueChange={value => setNewTask({...newTask, columnId: value})}>
                     <SelectTrigger>
                       <SelectValue placeholder="Spalte auswählen" />
                     </SelectTrigger>
@@ -288,7 +418,7 @@ const TaskManager = () => {
                 </div>
                 <div>
                   <Label htmlFor="priority">Priorität</Label>
-                  <Select>
+                  <Select value={newTask.priority} onValueChange={value => setNewTask({...newTask, priority: value})}>
                     <SelectTrigger>
                       <SelectValue placeholder="Priorität auswählen" />
                     </SelectTrigger>
@@ -301,20 +431,20 @@ const TaskManager = () => {
                 </div>
                 <div>
                   <Label htmlFor="assignedTo">Zugewiesen an</Label>
-                  <Select>
+                  <Select value={newTask.assignedTo} onValueChange={value => setNewTask({...newTask, assignedTo: value})}>
                     <SelectTrigger>
                       <SelectValue placeholder="Mitarbeiter auswählen" />
                     </SelectTrigger>
                     <SelectContent>
                       {employees.map(employee => (
-                        <SelectItem key={employee} value={employee || "unassigned"}>{employee}</SelectItem>
+                        <SelectItem key={employee} value={employee}>{employee}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
                   <Label htmlFor="customer">Kunde (optional)</Label>
-                  <Select>
+                  <Select onValueChange={value => setNewTask({...newTask, customer: value === 'none' ? null : value})}>
                     <SelectTrigger>
                       <SelectValue placeholder="Kunde auswählen" />
                     </SelectTrigger>
@@ -328,16 +458,16 @@ const TaskManager = () => {
                 </div>
                 <div>
                   <Label htmlFor="deadline">Deadline</Label>
-                  <Input id="deadline" type="date" />
+                  <Input id="deadline" type="date" value={newTask.deadline} onChange={e => setNewTask({...newTask, deadline: e.target.value})} />
                 </div>
                 <div>
                   <Label htmlFor="estimatedHours">Geschätzte Stunden</Label>
-                  <Input id="estimatedHours" type="number" placeholder="0" />
+                  <Input id="estimatedHours" type="number" placeholder="0" value={newTask.estimatedHours} onChange={e => setNewTask({...newTask, estimatedHours: Number(e.target.value)})} />
                 </div>
               </div>
               <div className="flex justify-end gap-2 mt-4">
-                <Button variant="outline">Abbrechen</Button>
-                <Button>Aufgabe hinzufügen</Button>
+                <Button variant="outline" onClick={() => setIsNewTaskDialogOpen(false)}>Abbrechen</Button>
+                <Button onClick={handleAddTask}>Aufgabe hinzufügen</Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -431,7 +561,7 @@ const TaskManager = () => {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => toggleTimer(task.id)}
-                                  className="text-red-600 hover:text-red-700 text-xs h-8"
+                                  className="timer-toggle text-red-600 hover:text-red-700 text-xs h-8"
                                 >
                                   <Pause className="w-3 h-3 mr-1" />
                                   Stopp
@@ -441,7 +571,7 @@ const TaskManager = () => {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => toggleTimer(task.id)}
-                                  className="text-green-600 hover:text-green-700 text-xs h-8"
+                                  className="timer-toggle text-green-600 hover:text-green-700 text-xs h-8"
                                 >
                                   <Play className="w-3 h-3 mr-1" />
                                   Start
@@ -472,6 +602,7 @@ const TaskManager = () => {
         isOpen={isTaskDialogOpen}
         onClose={() => setIsTaskDialogOpen(false)}
         onSave={handleTaskSave}
+        onDelete={handleDeleteTask}
       />
     </div>
   );

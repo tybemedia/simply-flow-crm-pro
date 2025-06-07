@@ -23,7 +23,7 @@ export const getEmployees = async (): Promise<Employee[]> => {
 // Helper: Nur Namen
 export const getEmployeeNames = async (): Promise<string[]> => {
   const employees = await getEmployees();
-  return employees.map(emp => emp.name);
+  return employees.map(emp => emp.name).filter(name => name && name.trim() !== '');
 };
 
 // Helper: Einzelne Mitarbeiter

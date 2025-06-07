@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { User, Building, Calendar, Clock, MessageSquare, Send } from 'lucide-react';
+import { User, Building, Calendar, Clock, MessageSquare, Send, Trash2 } from 'lucide-react';
 import { getEmployeeNames } from '../data/employees';
 
 interface Task {
@@ -35,12 +35,17 @@ interface TaskEditDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (task: Task) => void;
+  onDelete: (taskId: number) => void;
 }
 
-const TaskEditDialog = ({ task, isOpen, onClose, onSave }: TaskEditDialogProps) => {
+const TaskEditDialog = ({ task, isOpen, onClose, onSave, onDelete }: TaskEditDialogProps) => {
   const [editedTask, setEditedTask] = useState<Task | null>(null);
   const [newComment, setNewComment] = useState("");
-  const employees = getEmployeeNames();
+  const [employees, setEmployees] = useState<string[]>([]);
+
+  React.useEffect(() => {
+    getEmployeeNames().then(setEmployees);
+  }, []);
 
   React.useEffect(() => {
     if (task) {
@@ -54,6 +59,13 @@ const TaskEditDialog = ({ task, isOpen, onClose, onSave }: TaskEditDialogProps) 
   const handleSave = () => {
     if (editedTask) {
       onSave(editedTask);
+      onClose();
+    }
+  };
+
+  const handleDelete = () => {
+    if (editedTask) {
+      onDelete(editedTask.id);
       onClose();
     }
   };
@@ -166,7 +178,7 @@ const TaskEditDialog = ({ task, isOpen, onClose, onSave }: TaskEditDialogProps) 
                   </SelectTrigger>
                   <SelectContent>
                     {employees.map(employee => (
-                      <SelectItem key={employee} value={employee || "unassigned"}>{employee}</SelectItem>
+                      <SelectItem key={employee} value={employee}>{employee}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -219,7 +231,11 @@ const TaskEditDialog = ({ task, isOpen, onClose, onSave }: TaskEditDialogProps) 
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 pt-4 border-t">
+        <div className="flex justify-between gap-2 pt-4 border-t">
+          <Button variant="destructive" onClick={handleDelete} className="mr-auto">
+            <Trash2 className="w-4 h-4 mr-2" />
+            Löschen
+          </Button>
           <Button variant="outline" onClick={onClose}>
             Abbrechen
           </Button>
