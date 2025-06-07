@@ -3,19 +3,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { DollarSign, Users, Target, CheckSquare, TrendingUp, Calendar, Clock } from 'lucide-react';
-import { getAllEmployeePerformances } from '../data/employees';
+import { getAllEmployeePerformances, EmployeePerformance } from '../data/employees';
 import { deals, getPipelineStats, getTotalDealValue } from '../data/deals';
 import { tasks, getCurrentMonthTrackedHours, getTasksByEmployee } from '../data/tasks';
 import TimeTrackingPopup from './TimeTrackingPopup';
 
 const Dashboard = () => {
-  const [teamPerformance, setTeamPerformance] = useState([]);
+  const [teamPerformance, setTeamPerformance] = useState<EmployeePerformance[]>([]);
   const [pipelineStats, setPipelineStats] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
 
   useEffect(() => {
-    const performances = getAllEmployeePerformances(deals, tasks);
-    setTeamPerformance(performances);
+    const fetchPerformance = async () => {
+      const performances = await getAllEmployeePerformances(deals, tasks);
+      setTeamPerformance(performances);
+    };
+    fetchPerformance();
     setPipelineStats(getPipelineStats());
   }, []);
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
@@ -45,24 +45,32 @@ const initialNewDeal: NewDealForm = {
 
 const phases: DealPhase[] = ["Ersttermin", "Angebot versendet", "Verhandlung", "Abgeschlossen"];
 const statuses: DealStatus[] = ["Aktiv", "In Kooperation", "Erfolgreich abgeschlossen - Einmalig", "Gekündigt"];
-const employees = getEmployeeNames();
 
 const DealsPipeline = () => {
   const [isNewDealOpen, setIsNewDealOpen] = useState(false);
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [newDeal, setNewDeal] = useState<NewDealForm>(initialNewDeal);
+  const [employees, setEmployees] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchEmployeeNames = async () => {
+      const names = await getEmployeeNames();
+      setEmployees(names);
+    };
+    fetchEmployeeNames();
+  }, []);
 
   const handleAddDeal = () => {
     const deal: Deal = {
       id: Date.now(),
       title: newDeal.title,
       customer: newDeal.customer,
-      value: parseInt(newDeal.value) || 0,
-      probability: parseInt(newDeal.probability) || 0,
+      value: newDeal.value,
+      probability: newDeal.probability,
       phase: newDeal.phase,
       assignedTo: newDeal.assignedTo,
       salesperson: newDeal.salesperson || null,
-      commissionPercentage: parseInt(newDeal.commissionPercentage) || 0,
+      commissionPercentage: newDeal.commissionPercentage,
       closeDate: newDeal.closeDate,
       status: newDeal.status,
       expirationDate: newDeal.expirationDate || null,

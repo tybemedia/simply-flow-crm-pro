@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,7 +18,15 @@ const CustomerList = () => {
   const [isNewCustomerOpen, setIsNewCustomerOpen] = useState(false);
   const [isEditingDeal, setIsEditingDeal] = useState(false);
   const [editedDeal, setEditedDeal] = useState<Deal | null>(null);
-  const employees = getEmployeeNames();
+  const [employees, setEmployees] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchEmployeeNames = async () => {
+      const names = await getEmployeeNames();
+      setEmployees(names);
+    };
+    fetchEmployeeNames();
+  }, []);
 
   const customers = [
     {
