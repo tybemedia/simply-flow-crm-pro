@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -7,8 +6,16 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { User, Building, Mail, Phone, MessageSquare, Send, Activity } from 'lucide-react';
+import { User, Building, Mail, Phone, MessageSquare, Send, Activity, Trash2 } from 'lucide-react';
 import ActivityTracker from './ActivityTracker';
+
+interface Comment {
+  id: number;
+  contact_id?: number;
+  author: string;
+  text: string;
+  timestamp: string;
+}
 
 interface Contact {
   id: number;
@@ -18,17 +25,9 @@ interface Contact {
   company: string | null;
   position: string;
   type: string;
-  tags: string[];
   description?: string;
+  tags: string[];
   comments?: Comment[];
-  activities?: any[];
-}
-
-interface Comment {
-  id: number;
-  author: string;
-  text: string;
-  timestamp: string;
 }
 
 interface ContactEditDialogProps {
@@ -36,9 +35,11 @@ interface ContactEditDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (contact: Contact) => void;
+  onAddComment: (contactId: number, commentText: string) => void;
+  onDelete: (contactId: number) => void;
 }
 
-const ContactEditDialog = ({ contact, isOpen, onClose, onSave }: ContactEditDialogProps) => {
+const ContactEditDialog = ({ contact, isOpen, onClose, onSave, onAddComment, onDelete }: ContactEditDialogProps) => {
   const [editedContact, setEditedContact] = useState<Contact | null>(null);
   const [newComment, setNewComment] = useState("");
 
@@ -48,7 +49,6 @@ const ContactEditDialog = ({ contact, isOpen, onClose, onSave }: ContactEditDial
         ...contact,
         description: contact.description || "",
         comments: contact.comments || [],
-        activities: contact.activities || []
       });
     }
   }, [contact]);
@@ -60,34 +60,17 @@ const ContactEditDialog = ({ contact, isOpen, onClose, onSave }: ContactEditDial
     }
   };
 
-  const addComment = () => {
+  const handleAddComment = () => {
     if (newComment.trim() && editedContact) {
-      const comment: Comment = {
-        id: Date.now(),
-        author: "Aktueller User",
-        text: newComment.trim(),
-        timestamp: new Date().toISOString()
-      };
-      
-      setEditedContact({
-        ...editedContact,
-        comments: [...(editedContact.comments || []), comment]
-      });
+      onAddComment(editedContact.id, newComment.trim());
       setNewComment("");
     }
   };
 
-  const addActivity = (activityData: any) => {
+  const handleDelete = () => {
     if (editedContact) {
-      const activity = {
-        id: Date.now(),
-        ...activityData
-      };
-      
-      setEditedContact({
-        ...editedContact,
-        activities: [...(editedContact.activities || []), activity]
-      });
+      onDelete(editedContact.id);
+      onClose();
     }
   };
 
@@ -165,7 +148,7 @@ const ContactEditDialog = ({ contact, isOpen, onClose, onSave }: ContactEditDial
                       rows={2}
                       className="flex-1"
                     />
-                    <Button onClick={addComment} size="sm" className="self-end">
+                    <Button onClick={handleAddComment} size="sm" className="self-end">
                       <Send className="w-4 h-4" />
                     </Button>
                   </div>
@@ -223,15 +206,15 @@ const ContactEditDialog = ({ contact, isOpen, onClose, onSave }: ContactEditDial
           </TabsContent>
 
           <TabsContent value="activities">
-            <ActivityTracker 
-              contactId={editedContact.id}
-              activities={editedContact.activities || []}
-              onAddActivity={addActivity}
-            />
+            <div className="text-center text-gray-500 py-8">Activity tracking is not yet implemented.</div>
           </TabsContent>
         </Tabs>
 
-        <div className="flex justify-end gap-2 pt-4 border-t">
+        <div className="flex justify-between gap-2 pt-4 border-t">
+          <Button variant="destructive" onClick={handleDelete} className="mr-auto">
+            <Trash2 className="w-4 h-4 mr-2" />
+            Löschen
+          </Button>
           <Button variant="outline" onClick={onClose}>
             Abbrechen
           </Button>

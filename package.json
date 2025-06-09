@@ -12,7 +12,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-    "db:setup": "ts-node server/setup_database.ts"
+    "db:setup": "ts-node server/setup_database.ts",
+    "db:seed": "ts-node server/seed.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

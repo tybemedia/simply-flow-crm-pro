@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,64 +10,74 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Plus, Mail, Phone, Building, User, Search } from 'lucide-react';
 import ContactEditDialog from './ContactEditDialog';
 
-const ContactsManager = () => {
-  const [contacts, setContacts] = useState([
-    {
-      id: 1,
-      name: "Anna Schmidt",
-      email: "anna.schmidt@techcorp.de",
-      phone: "+49 123 456789",
-      company: "TechCorp GmbH",
-      position: "Marketing Manager",
-      type: "Kunde",
-      tags: ["Webdesign", "Marketing"]
-    },
-    {
-      id: 2,
-      name: "Thomas Videograf",
-      email: "thomas@videoworks.de",
-      phone: "+49 987 654321",
-      company: null,
-      position: "Videograf",
-      type: "Dienstleister",
-      tags: ["Video", "Produktion"]
-    },
-    {
-      id: 3,
-      name: "Sarah Weber",
-      email: "sarah@designplus.de",
-      phone: "+49 555 123456",
-      company: "Design Studio Plus",
-      position: "Creative Director",
-      type: "Kunde",
-      tags: ["Design", "Branding"]
-    },
-    {
-      id: 4,
-      name: "Michael Fotograf",
-      email: "info@michaelfoto.de",
-      phone: "+49 666 789012",
-      company: null,
-      position: "Fotograf",
-      type: "Dienstleister",
-      tags: ["Fotografie", "Events"]
-    },
-    {
-      id: 5,
-      name: "Lisa Müller",
-      email: "lisa.mueller@retail.ag",
-      phone: "+49 777 345678",
-      company: "Retail Solutions AG",
-      position: "Geschäftsführerin",
-      type: "Kunde",
-      tags: ["E-Commerce", "Strategie"]
-    }
-  ]);
+export interface Comment {
+  id: number;
+  contact_id?: number;
+  author: string;
+  text: string;
+  timestamp: string;
+}
 
+export interface Contact {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  company: string | null;
+  position: string;
+  type: string;
+  description?: string;
+  tags: string[];
+  comments?: Comment[];
+}
+
+interface Company {
+  id: number;
+  name: string;
+}
+
+const ContactsManager = () => {
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("Alle");
-  const [selectedContact, setSelectedContact] = useState(null);
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
+  const [isNewContactDialogOpen, setIsNewContactDialogOpen] = useState(false);
+  const [newContact, setNewContact] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    company: null,
+    position: "",
+    type: "Kunde",
+    tags: []
+  });
+
+  useEffect(() => {
+    const fetchContacts = async () => {
+      try {
+        const response = await fetch('/api/contacts');
+        if (!response.ok) throw new Error('Failed to fetch contacts');
+        const data = await response.json();
+        setContacts(data);
+      } catch (error) {
+        console.error("Error fetching contacts:", error);
+      }
+    };
+    const fetchCompanies = async () => {
+      try {
+        const response = await fetch('/api/companies');
+        if (!response.ok) throw new Error('Failed to fetch companies');
+        const data = await response.json();
+        setCompanies(data);
+      } catch (error) {
+        console.error("Error fetching companies:", error);
+      }
+    };
+    fetchContacts();
+    fetchCompanies();
+  }, []);
 
   const filteredContacts = contacts.filter(contact => {
     const matchesSearch = contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -85,16 +95,88 @@ const ContactsManager = () => {
     }
   };
 
-  const handleContactClick = (contact) => {
-    setSelectedContact(contact);
-    setIsContactDialogOpen(true);
+  const handleContactClick = async (contact: Contact) => {
+    try {
+      const response = await fetch(`/api/contacts/${contact.id}/comments`);
+      if (!response.ok) throw new Error('Failed to fetch comments.');
+      const comments = await response.json();
+      setSelectedContact({ ...contact, comments });
+      setIsContactDialogOpen(true);
+    } catch (error) {
+      console.error("Error fetching comments:", error);
+    }
   };
 
-  const handleContactSave = (updatedContact) => {
-    setContacts(contacts.map(contact => 
-      contact.id === updatedContact.id ? updatedContact : contact
-    ));
-    setSelectedContact(null);
+  const handleSaveContact = async (contactToSave: Contact) => {
+    try {
+      // If it's a new contact (no id), create it
+      if (!contactToSave.id) {
+        const response = await fetch('/api/contacts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(contactToSave),
+        });
+        if (!response.ok) throw new Error('Failed to create contact.');
+        const createdContact = await response.json();
+        setContacts(prev => [...prev, createdContact]);
+        setIsNewContactDialogOpen(false);
+        // Reset form
+        setNewContact({
+          name: "", email: "", phone: "", company: null, position: "", type: "Kunde", tags: []
+        });
+      } else {
+        // Otherwise, update existing contact
+        const { comments, ...contactData } = contactToSave;
+        const response = await fetch(`/api/contacts/${contactToSave.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(contactData),
+        });
+        if (!response.ok) throw new Error('Failed to update contact.');
+        const updatedContact = await response.json();
+        setContacts(contacts.map(c => c.id === updatedContact.id ? { ...c, ...updatedContact } : c));
+        setSelectedContact(null);
+        setIsContactDialogOpen(false);
+      }
+    } catch (error) {
+      console.error("Error saving contact:", error);
+    }
+  };
+
+  const handleAddComment = async (contactId: number, commentText: string) => {
+    try {
+        const response = await fetch(`/api/contacts/${contactId}/comments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ author: 'Aktueller User', text: commentText }),
+        });
+        if (!response.ok) throw new Error('Failed to add comment.');
+        const newComment = await response.json();
+
+        // Update the selected contact's comments
+        if (selectedContact && selectedContact.id === contactId) {
+            setSelectedContact({
+                ...selectedContact,
+                comments: [...(selectedContact.comments || []), newComment]
+            });
+        }
+    } catch (error) {
+        console.error("Error adding comment:", error);
+    }
+  };
+
+  const handleDeleteContact = async (contactId: number) => {
+    try {
+      const response = await fetch(`/api/contacts/${contactId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error('Failed to delete contact.');
+      setContacts(contacts.filter(c => c.id !== contactId));
+      setIsContactDialogOpen(false);
+      setSelectedContact(null);
+    } catch (error) {
+      console.error("Error deleting contact:", error);
+    }
   };
 
   return (
@@ -104,7 +186,7 @@ const ContactsManager = () => {
           <h2 className="text-3xl font-bold text-gray-900">Kontakte</h2>
           <p className="text-gray-600">Verwalten Sie alle Ihre Kontakte und Dienstleister</p>
         </div>
-        <Dialog>
+        <Dialog open={isNewContactDialogOpen} onOpenChange={setIsNewContactDialogOpen}>
           <DialogTrigger asChild>
             <Button className="flex items-center gap-2">
               <Plus className="w-4 h-4" />
@@ -118,37 +200,37 @@ const ContactsManager = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="name">Name</Label>
-                <Input id="name" placeholder="Vor- und Nachname" />
+                <Input id="name" placeholder="Vor- und Nachname" value={newContact.name} onChange={e => setNewContact({...newContact, name: e.target.value})} />
               </div>
               <div>
                 <Label htmlFor="email">E-Mail</Label>
-                <Input id="email" type="email" placeholder="email@beispiel.de" />
+                <Input id="email" type="email" placeholder="email@beispiel.de" value={newContact.email} onChange={e => setNewContact({...newContact, email: e.target.value})}/>
               </div>
               <div>
                 <Label htmlFor="phone">Telefon</Label>
-                <Input id="phone" placeholder="+49 123 456789" />
+                <Input id="phone" placeholder="+49 123 456789" value={newContact.phone} onChange={e => setNewContact({...newContact, phone: e.target.value})}/>
               </div>
               <div>
                 <Label htmlFor="position">Position</Label>
-                <Input id="position" placeholder="z.B. Marketing Manager" />
+                <Input id="position" placeholder="z.B. Marketing Manager" value={newContact.position} onChange={e => setNewContact({...newContact, position: e.target.value})}/>
               </div>
               <div>
                 <Label htmlFor="company">Unternehmen (optional)</Label>
-                <Select>
+                <Select onValueChange={value => setNewContact({...newContact, company: value === 'none' ? null : value})}>
                   <SelectTrigger>
                     <SelectValue placeholder="Unternehmen auswählen" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Kein Unternehmen</SelectItem>
-                    <SelectItem value="TechCorp GmbH">TechCorp GmbH</SelectItem>
-                    <SelectItem value="Design Studio Plus">Design Studio Plus</SelectItem>
-                    <SelectItem value="Retail Solutions AG">Retail Solutions AG</SelectItem>
+                    {companies.map(company => (
+                      <SelectItem key={company.id} value={company.name}>{company.name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label htmlFor="type">Typ</Label>
-                <Select>
+                <Select value={newContact.type} onValueChange={(value: any) => setNewContact({...newContact, type: value})}>
                   <SelectTrigger>
                     <SelectValue placeholder="Kontakt-Typ" />
                   </SelectTrigger>
@@ -160,8 +242,8 @@ const ContactsManager = () => {
               </div>
             </div>
             <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline">Abbrechen</Button>
-              <Button>Kontakt hinzufügen</Button>
+              <Button variant="outline" onClick={() => setIsNewContactDialogOpen(false)}>Abbrechen</Button>
+              <Button onClick={() => handleSaveContact(newContact as any)}>Kontakt hinzufügen</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -298,7 +380,9 @@ const ContactsManager = () => {
         contact={selectedContact}
         isOpen={isContactDialogOpen}
         onClose={() => setIsContactDialogOpen(false)}
-        onSave={handleContactSave}
+        onSave={handleSaveContact}
+        onAddComment={handleAddComment}
+        onDelete={handleDeleteContact}
       />
     </div>
   );

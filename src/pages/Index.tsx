@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -8,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Plus, Users, Target, CheckSquare, FileText, TrendingUp, DollarSign, Clock, Calendar, UserCheck } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import Dashboard from '@/components/Dashboard';
-import CustomerList from '@/components/CustomerList';
+import ProjectList from '@/components/ProjectList';
 import DealsPipeline from '@/components/DealsPipeline';
 import TaskManager from '@/components/TaskManager';
 import InvoiceManager from '@/components/InvoiceManager';
@@ -35,7 +34,7 @@ const Index = () => {
             </TabsTrigger>
             <TabsTrigger value="customers" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
-              Kunden
+              Projekte
             </TabsTrigger>
             <TabsTrigger value="contacts" className="flex items-center gap-2">
               <UserCheck className="w-4 h-4" />
@@ -60,7 +59,7 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="customers">
-            <CustomerList />
+            <ProjectList />
           </TabsContent>
 
           <TabsContent value="contacts">
