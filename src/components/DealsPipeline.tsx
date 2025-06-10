@@ -23,11 +23,11 @@ const initialNewDeal: NewDealForm = {
   probability: 0,
   phase: "Ersttermin",
   assignedTo: "",
-  salesperson: "",
+  salesperson: null,
   commissionPercentage: 0,
-  closeDate: "",
+  closeDate: new Date().toISOString().split('T')[0],
   status: "Aktiv",
-  expirationDate: "",
+  expirationDate: null,
   description: ""
 };
 
@@ -49,7 +49,17 @@ const DealsPipeline = () => {
       const response = await fetch('/api/deals');
       if (!response.ok) throw new Error('Failed to fetch deals');
       const data = await response.json();
-      setDeals(data);
+      const mappedDeals = data.map((deal: any) => ({
+        ...deal,
+        commissionPercentage: deal.commission_percentage,
+        assignedTo: deal.assigned_to,
+        closeDate: deal.close_date,
+        updatedAt: deal.updated_at,
+        expirationDate: deal.expiration_date,
+        companyId: deal.company_id,
+        companyName: deal.company_name
+      }));
+      setDeals(mappedDeals);
     } catch (error) {
       console.error(error);
     }
@@ -81,7 +91,8 @@ const DealsPipeline = () => {
       ...newDeal,
       salesperson: newDeal.salesperson || null,
       expirationDate: newDeal.expirationDate || null,
-      updatedAt: new Date().toISOString().split('T')[0],
+      createdAt: new Date().toISOString().split('T')[0],
+      updatedAt: new Date().toISOString().split('T')[0]
     };
 
     try {
@@ -91,13 +102,17 @@ const DealsPipeline = () => {
         body: JSON.stringify(dealToCreate),
       });
 
-      if (!response.ok) throw new Error('Failed to create deal');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.details?.message || 'Failed to create deal');
+      }
       
       await fetchDeals(); // Refresh list
       setNewDeal(initialNewDeal);
       setIsNewDealOpen(false);
     } catch (error) {
       console.error("Error creating deal:", error);
+      // You might want to show an error message to the user here
     }
   };
 
@@ -175,7 +190,8 @@ const DealsPipeline = () => {
   };
 
   const calculateCommission = (value: number, percentage: number) => {
-    return (value * percentage) / 100;
+    if (!value || !percentage) return 0;
+    return Math.round((value * percentage) / 100);
   };
 
   const handleValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -189,7 +205,8 @@ const DealsPipeline = () => {
   };
 
   const handleCommissionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const commissionPercentage = parseInt(e.target.value) || 0;
+    const value = e.target.value;
+    const commissionPercentage = value === '' ? 0 : parseInt(value);
     setNewDeal({ ...newDeal, commissionPercentage });
   };
 
@@ -301,8 +318,8 @@ const DealsPipeline = () => {
               <div>
                 <Label htmlFor="salesperson">Vertrieb</Label>
                 <Select 
-                  value={newDeal.salesperson} 
-                  onValueChange={(value) => setNewDeal({...newDeal, salesperson: value})}
+                  value={newDeal.salesperson || ""} 
+                  onValueChange={(value) => setNewDeal({...newDeal, salesperson: value === "none" ? null : value})}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Vertriebler auswählen" />
@@ -360,8 +377,8 @@ const DealsPipeline = () => {
                 <Input 
                   id="expirationDate" 
                   type="date"
-                  value={newDeal.expirationDate}
-                  onChange={(e) => setNewDeal({...newDeal, expirationDate: e.target.value})}
+                  value={newDeal.expirationDate || ""}
+                  onChange={(e) => setNewDeal({...newDeal, expirationDate: e.target.value || null})}
                   disabled={newDeal.status !== "In Kooperation"}
                 />
               </div>
@@ -442,48 +459,159 @@ const DealsPipeline = () => {
             <div className="space-y-4 py-4">
               {isEditing ? (
                 <div className="grid grid-cols-2 gap-4">
-                   <div>
-                      <Label htmlFor="editTitle">Titel</Label>
-                      <Input id="editTitle" value={editedDeal?.title} onChange={(e) => setEditedDeal({...editedDeal, title: e.target.value})} />
+                  <div>
+                    <Label htmlFor="editTitle">Titel</Label>
+                    <Input 
+                      id="editTitle" 
+                      value={editedDeal?.title} 
+                      onChange={(e) => setEditedDeal({...editedDeal, title: e.target.value})} 
+                    />
                   </div>
                   <div>
-                      <Label htmlFor="editCompany">Kunde</Label>
-                      <Select value={editedDeal?.companyId?.toString()} onValueChange={(value) => setEditedDeal({...editedDeal, companyId: parseInt(value)})}>
-                          <SelectTrigger><SelectValue/></SelectTrigger>
-                          <SelectContent>
-                              {companies.map(c => <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>)}
-                          </SelectContent>
-                      </Select>
+                    <Label htmlFor="editCompany">Kunde</Label>
+                    <Select 
+                      value={editedDeal?.companyId?.toString()} 
+                      onValueChange={(value) => setEditedDeal({...editedDeal, companyId: parseInt(value)})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Kunde auswählen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {companies.map(c => (
+                          <SelectItem key={c.id} value={c.id.toString()}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
-                      <Label htmlFor="editValue">Wert</Label>
-                      <Input id="editValue" type="number" value={editedDeal?.value} onChange={(e) => setEditedDeal({...editedDeal, value: parseInt(e.target.value) || 0})} />
-                  </div>
-                   <div>
-                      <Label htmlFor="editProbability">Wahrscheinlichkeit (%)</Label>
-                      <Input id="editProbability" type="number" value={editedDeal?.probability} onChange={(e) => setEditedDeal({...editedDeal, probability: parseInt(e.target.value) || 0})} />
+                    <Label htmlFor="editValue">Wert</Label>
+                    <Input 
+                      id="editValue" 
+                      type="number" 
+                      value={editedDeal?.value} 
+                      onChange={(e) => setEditedDeal({...editedDeal, value: parseInt(e.target.value) || 0})} 
+                    />
                   </div>
                   <div>
-                      <Label htmlFor="editPhase">Phase</Label>
-                       <Select value={editedDeal?.phase} onValueChange={(value: DealPhase) => setEditedDeal({...editedDeal, phase: value})}>
-                          <SelectTrigger><SelectValue/></SelectTrigger>
-                          <SelectContent>
-                              {phases.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                          </SelectContent>
-                      </Select>
+                    <Label htmlFor="editProbability">Wahrscheinlichkeit (%)</Label>
+                    <Input 
+                      id="editProbability" 
+                      type="number" 
+                      value={editedDeal?.probability} 
+                      onChange={(e) => setEditedDeal({...editedDeal, probability: parseInt(e.target.value) || 0})} 
+                    />
                   </div>
-                   <div>
-                      <Label htmlFor="editStatus">Status</Label>
-                       <Select value={editedDeal?.status} onValueChange={(value: DealStatus) => setEditedDeal({...editedDeal, status: value})}>
-                          <SelectTrigger><SelectValue/></SelectTrigger>
-                          <SelectContent>
-                              {statuses.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                          </SelectContent>
-                      </Select>
+                  <div>
+                    <Label htmlFor="editPhase">Phase</Label>
+                    <Select 
+                      value={editedDeal?.phase} 
+                      onValueChange={(value: DealPhase) => setEditedDeal({...editedDeal, phase: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Phase auswählen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {phases.map(p => (
+                          <SelectItem key={p} value={p}>
+                            {p}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="editAssignedTo">Zuständig</Label>
+                    <Select 
+                      value={editedDeal?.assignedTo} 
+                      onValueChange={(value) => setEditedDeal({...editedDeal, assignedTo: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Mitarbeiter auswählen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {employees.map((employee) => (
+                          <SelectItem key={employee} value={employee}>
+                            {employee}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="editSalesperson">Vertrieb</Label>
+                    <Select 
+                      value={editedDeal?.salesperson || ""} 
+                      onValueChange={(value) => setEditedDeal({...editedDeal, salesperson: value === "none" ? null : value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Vertriebler auswählen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Kein Vertriebler</SelectItem>
+                        {employees.map((employee) => (
+                          <SelectItem key={employee} value={employee}>
+                            {employee}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="editCommissionPercentage">Provision (%)</Label>
+                    <Input 
+                      id="editCommissionPercentage" 
+                      type="number" 
+                      value={editedDeal?.commissionPercentage} 
+                      onChange={(e) => setEditedDeal({...editedDeal, commissionPercentage: parseInt(e.target.value) || 0})}
+                      disabled={!editedDeal?.salesperson}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="editCloseDate">Abschlussdatum</Label>
+                    <Input 
+                      id="editCloseDate" 
+                      type="date"
+                      value={editedDeal?.closeDate}
+                      onChange={(e) => setEditedDeal({...editedDeal, closeDate: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="editStatus">Status</Label>
+                    <Select 
+                      value={editedDeal?.status} 
+                      onValueChange={(value: DealStatus) => setEditedDeal({...editedDeal, status: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Status auswählen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {statuses.map(s => (
+                          <SelectItem key={s} value={s}>
+                            {s}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="editExpirationDate">Ablaufdatum</Label>
+                    <Input 
+                      id="editExpirationDate" 
+                      type="date"
+                      value={editedDeal?.expirationDate || ""}
+                      onChange={(e) => setEditedDeal({...editedDeal, expirationDate: e.target.value || null})}
+                      disabled={editedDeal?.status !== "In Kooperation"}
+                    />
                   </div>
                   <div className="col-span-2">
-                      <Label htmlFor="editDescription">Beschreibung</Label>
-                      <Textarea id="editDescription" value={editedDeal?.description} onChange={(e) => setEditedDeal({...editedDeal, description: e.target.value})} />
+                    <Label htmlFor="editDescription">Beschreibung</Label>
+                    <Textarea 
+                      id="editDescription" 
+                      value={editedDeal?.description} 
+                      onChange={(e) => setEditedDeal({...editedDeal, description: e.target.value})} 
+                    />
                   </div>
                 </div>
               ) : (
@@ -503,7 +631,16 @@ const DealsPipeline = () => {
                     {selectedDeal.salesperson && (
                       <>
                           <div><span className="font-semibold">Vertrieb:</span> {selectedDeal.salesperson}</div>
-                          <div><span className="font-semibold">Provision:</span> {formatCurrency(calculateCommission(selectedDeal.value, selectedDeal.commissionPercentage))} ({selectedDeal.commissionPercentage}%)</div>
+                          <div>
+                            <span className="font-semibold">Provision:</span> {
+                              (() => {
+                                const value = parseFloat(selectedDeal.value.toString());
+                                const commission = selectedDeal.commissionPercentage;
+                                const commissionAmount = (value * commission) / 100;
+                                return formatCurrency(commissionAmount);
+                              })()
+                            } ({selectedDeal.commissionPercentage}%)
+                          </div>
                       </>
                     )}
                   </div>

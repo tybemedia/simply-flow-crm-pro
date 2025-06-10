@@ -7,10 +7,23 @@ import { getCompanies, createCompany, updateCompany } from './api/companies.js';
 import { getDeals, createDeal, updateDeal, deleteDeal } from './api/deals.js';
 
 const app = express();
-const port = 3001;
+const port = process.env.PORT || 3000;
 
-app.use(cors());
+// Configure CORS
+app.use(cors({
+  origin: ['http://localhost:8080', 'http://localhost:3000'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
+
 app.use(express.json());
+
+// Add request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
 
 app.get('/api', (req, res) => {
   res.send('Hello from the API!');
@@ -132,11 +145,20 @@ app.post('/api/contacts/:id/comments', async (req, res) => {
 // Company Routes
 app.get('/api/companies', async (req, res) => {
   try {
+    console.log('Received request for companies');
     const companies = await getCompanies();
+    console.log('Sending response with companies:', companies.length);
     res.json(companies);
-  } catch (error) {
-    console.error(error);
-    res.status(500).send('Error fetching companies');
+  } catch (error: any) {
+    console.error('Error in /api/companies endpoint:', error);
+    res.status(500).json({
+      error: 'Error fetching companies',
+      details: {
+        message: error?.message,
+        code: error?.code,
+        detail: error?.detail
+      }
+    });
   }
 });
 
@@ -152,11 +174,30 @@ app.post('/api/companies', async (req, res) => {
 
 app.put('/api/companies/:id', async (req, res) => {
   try {
-    const updatedCompany = await updateCompany(parseInt(req.params.id), req.body);
+    console.log('Received update request for company:', req.params.id);
+    console.log('Update data:', req.body);
+    
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({
+        error: 'Invalid company ID',
+        details: 'The provided company ID is not a valid number'
+      });
+    }
+
+    const updatedCompany = await updateCompany(id, req.body);
+    console.log('Company updated successfully:', updatedCompany);
     res.json(updatedCompany);
-  } catch (error) {
-    console.error(error);
-    res.status(500).send('Error updating company');
+  } catch (error: any) {
+    console.error('Error in /api/companies/:id endpoint:', error);
+    res.status(500).json({
+      error: 'Error updating company',
+      details: {
+        message: error?.message,
+        code: error?.code,
+        detail: error?.detail
+      }
+    });
   }
 });
 
@@ -184,11 +225,30 @@ app.post('/api/deals', async (req, res) => {
 
 app.put('/api/deals/:id', async (req, res) => {
   try {
-    const updatedDeal = await updateDeal(parseInt(req.params.id), req.body);
+    console.log('Received update request for deal:', req.params.id);
+    console.log('Update data:', req.body);
+    
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({
+        error: 'Invalid deal ID',
+        details: 'The provided deal ID is not a valid number'
+      });
+    }
+
+    const updatedDeal = await updateDeal(id, req.body);
+    console.log('Deal updated successfully:', updatedDeal);
     res.json(updatedDeal);
-  } catch (error) {
-    console.error(error);
-    res.status(500).send('Error updating deal');
+  } catch (error: any) {
+    console.error('Error in /api/deals/:id endpoint:', error);
+    res.status(500).json({
+      error: 'Error updating deal',
+      details: {
+        message: error?.message,
+        code: error?.code,
+        detail: error?.detail
+      }
+    });
   }
 });
 

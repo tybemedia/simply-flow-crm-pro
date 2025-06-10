@@ -3,15 +3,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Search, Edit, Eye, Users, Target, DollarSign, Calendar, ChevronUp, ChevronDown, Save, X } from 'lucide-react';
+import { Plus, Search, Edit, Eye, Users, Target, DollarSign, Calendar, ChevronUp, ChevronDown, Save, X, Mail, Phone } from 'lucide-react';
 import { getEmployeeNames } from '../data/employees';
-import { Deal, DealPhase } from '../../server/api/deals';
 import { Contact } from '../../server/api/contacts';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface Company {
     id: number;
@@ -20,7 +20,32 @@ interface Company {
     status: string;
     address: string;
     notes: string;
+    assignedTo: string;
+    description: string;
+    contacts: number[];
+    deals: number[];
 }
+
+interface Deal {
+    id: number;
+    title: string;
+    value: number;
+    phase: string;
+    companyId: number;
+    companyName: string;
+    salesperson: string;
+    expirationDate: string;
+    notes?: string;
+    updatedAt: string;
+    probability: number;
+    assignedTo: string;
+    closeDate: string;
+    description: string;
+    commissionPercentage: number;
+    status: string;
+}
+
+type DealPhase = 'Lead' | 'Verhandlung' | 'Abschluss' | 'Abgeschlossen' | 'Verloren';
 
 type NewDealForm = Omit<Deal, 'id' | 'updatedAt' | 'companyName'>;
 
@@ -75,8 +100,15 @@ const ProjectList = () => {
     industry: "",
     status: "Lead",
     address: "",
-    notes: ""
+    notes: "",
+    assignedTo: "",
+    description: "",
+    contacts: [],
+    deals: []
   });
+
+  const [allDeals, setAllDeals] = useState<Deal[]>([]);
+  const [allContacts, setAllContacts] = useState<Contact[]>([]);
 
   const fetchCompanies = async () => {
     try {
@@ -99,10 +131,29 @@ const ProjectList = () => {
     fetchCompanies();
   }, []);
 
+  useEffect(() => {
+    const fetchAllDealsAndContacts = async () => {
+        try {
+            const [dealsResponse, contactsResponse] = await Promise.all([
+                fetch('/api/deals'),
+                fetch('/api/contacts')
+            ]);
+            const deals = await dealsResponse.json();
+            const contacts = await contactsResponse.json();
+            setAllDeals(deals);
+            setAllContacts(contacts);
+        } catch (error) {
+            console.error('Error fetching deals and contacts:', error);
+        }
+    };
+
+    fetchAllDealsAndContacts();
+  }, []);
+
   const fetchProjectDetails = useCallback(async (projectId: number) => {
     // Fetch Deals
     try {
-        const response = await fetch(`/api/deals?companyId=${projectId}`);
+        const response = await fetch('/api/deals?companyId=' + projectId);
         if(!response.ok) throw new Error('Failed to fetch deals');
         const dealsData = await response.json();
         setProjectDeals(dealsData);
@@ -111,7 +162,7 @@ const ProjectList = () => {
     }
     // Fetch Contacts
      try {
-        const response = await fetch(`/api/contacts?companyId=${projectId}`);
+        const response = await fetch('/api/contacts?companyId=' + projectId);
         if(!response.ok) throw new Error('Failed to fetch contacts');
         const contactsData = await response.json();
         setProjectContacts(contactsData);
@@ -136,7 +187,7 @@ const ProjectList = () => {
       if (!response.ok) throw new Error('Failed to create project.');
       await fetchCompanies();
       setIsNewProjectOpen(false);
-      setNewProject({ name: "", industry: "", status: "Lead", address: "", notes: "" });
+      setNewProject({ name: "", industry: "", status: "Lead", address: "", notes: "", assignedTo: "", description: "", contacts: [], deals: [] });
     } catch (error) {
       console.error("Error creating project:", error);
     }
@@ -155,7 +206,7 @@ const ProjectList = () => {
   const handleSaveEdit = async () => {
     if (!editedProject) return;
     try {
-        const response = await fetch(`/api/companies/${editedProject.id}`, {
+        const response = await fetch('/api/companies/' + editedProject.id, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(editedProject),
@@ -271,43 +322,141 @@ const ProjectList = () => {
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Neues Projekt hinzufügen</DialogTitle>
+              <DialogTitle>Neues Projekt erstellen</DialogTitle>
+              <DialogDescription>
+                Erstellen Sie ein neues Projekt und fügen Sie Details wie Branche, Status und zugewiesene Mitarbeiter hinzu.
+              </DialogDescription>
             </DialogHeader>
-            <div className="grid grid-cols-2 gap-4 py-4">
-              <div>
-                <Label htmlFor="company">Projektname</Label>
-                <Input id="company" placeholder="Projektname" value={newProject.name} onChange={(e) => setNewProject({...newProject, name: e.target.value})} />
-              </div>
-              <div>
-                <Label htmlFor="industry">Branche</Label>
-                <Input id="industry" placeholder="z.B. IT-Services" value={newProject.industry} onChange={(e) => setNewProject({...newProject, industry: e.target.value})} />
-              </div>
-              <div className="col-span-2">
-                <Label htmlFor="address">Adresse</Label>
-                <Input id="address" placeholder="Straße, PLZ Ort" value={newProject.address} onChange={(e) => setNewProject({...newProject, address: e.target.value})} />
-              </div>
-              <div className="col-span-2">
-                <Label htmlFor="notes">Notizen</Label>
-                <Textarea id="notes" placeholder="Zusätzliche Informationen..." value={newProject.notes} onChange={(e) => setNewProject({...newProject, notes: e.target.value})} />
-              </div>
-              <div>
-                <Label htmlFor="status">Status</Label>
-                <Select value={newProject.status} onValueChange={(value: string) => setNewProject({...newProject, status: value})}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Status auswählen" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Lead">Lead</SelectItem>
-                    <SelectItem value="Aktiv">Aktiv</SelectItem>
-                    <SelectItem value="Inaktiv">Inaktiv</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="name">Projektname</Label>
+                        <Input
+                            id="name"
+                            value={newProject.name}
+                            onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="industry">Branche</Label>
+                        <Input
+                            id="industry"
+                            value={newProject.industry}
+                            onChange={(e) => setNewProject({ ...newProject, industry: e.target.value })}
+                        />
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="assignedTo">Zugewiesen an</Label>
+                    <Select
+                        value={newProject.assignedTo}
+                        onValueChange={(value) => setNewProject({ ...newProject, assignedTo: value })}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Mitarbeiter auswählen" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {employees.map((employee) => (
+                                <SelectItem key={employee} value={employee}>
+                                    {employee}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="description">Projektbeschreibung</Label>
+                    <Textarea
+                        id="description"
+                        value={newProject.description}
+                        onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
+                        rows={3}
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="address">Adresse</Label>
+                    <Input
+                        id="address"
+                        value={newProject.address}
+                        onChange={(e) => setNewProject({ ...newProject, address: e.target.value })}
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="notes">Notizen</Label>
+                    <Textarea
+                        id="notes"
+                        value={newProject.notes}
+                        onChange={(e) => setNewProject({ ...newProject, notes: e.target.value })}
+                        rows={3}
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label>Deals</Label>
+                    <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 border rounded-md">
+                        {allDeals.map((deal) => (
+                            <div key={deal.id} className="flex items-center space-x-2">
+                                <Checkbox
+                                    id={`deal-${deal.id}`}
+                                    checked={newProject.deals.includes(deal.id)}
+                                    onCheckedChange={(checked) => {
+                                        const updatedDeals = checked
+                                            ? [...newProject.deals, deal.id]
+                                            : newProject.deals.filter(id => id !== deal.id);
+                                        setNewProject({ ...newProject, deals: updatedDeals });
+                                    }}
+                                />
+                                <Label htmlFor={`deal-${deal.id}`} className="text-sm">
+                                    {deal.title} ({deal.value}€)
+                                </Label>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <Label>Kontakte</Label>
+                    <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 border rounded-md">
+                        {allContacts.map((contact) => (
+                            <div key={contact.id} className="flex items-center space-x-2">
+                                <Checkbox
+                                    id={`contact-${contact.id}`}
+                                    checked={newProject.contacts.includes(contact.id)}
+                                    onCheckedChange={(checked) => {
+                                        const updatedContacts = checked
+                                            ? [...newProject.contacts, contact.id]
+                                            : newProject.contacts.filter(id => id !== contact.id);
+                                        setNewProject({ ...newProject, contacts: updatedContacts });
+                                    }}
+                                />
+                                <Label htmlFor={`contact-${contact.id}`} className="text-sm">
+                                    {contact.name} ({contact.type})
+                                </Label>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="status">Status</Label>
+                    <Select
+                        value={newProject.status}
+                        onValueChange={(value) => setNewProject({ ...newProject, status: value })}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Status auswählen" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Lead">Lead</SelectItem>
+                            <SelectItem value="Aktiv">Aktiv</SelectItem>
+                            <SelectItem value="Inaktiv">Inaktiv</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
-            <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline" onClick={() => setIsNewProjectOpen(false)}>Abbrechen</Button>
-              <Button onClick={handleCreateProject}>Projekt hinzufügen</Button>
-            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setIsNewProjectOpen(false)}>
+                    Abbrechen
+                </Button>
+                <Button onClick={handleCreateProject}>Speichern</Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
@@ -327,65 +476,182 @@ const ProjectList = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredProjects.map((project) => (
           <Card key={project.id} className="hover:shadow-lg transition-shadow flex flex-col">
-             {editingProjectId === project.id && editedProject ? (
-                <CardContent className="p-4 space-y-2 flex-grow">
-                     <Input value={editedProject.name} onChange={e => setEditedProject({...editedProject, name: e.target.value})} placeholder="Projektname" className="text-lg font-bold"/>
-                     <Input value={editedProject.industry} onChange={e => setEditedProject({...editedProject, industry: e.target.value})} placeholder="Branche"/>
-                     <Textarea value={editedProject.notes} onChange={e => setEditedProject({...editedProject, notes: e.target.value})} placeholder="Notizen" />
-                      <Select value={editedProject.status} onValueChange={(value: string) => setEditedProject({...editedProject, status: value})}>
-                        <SelectTrigger><SelectValue/></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Lead">Lead</SelectItem>
-                            <SelectItem value="Aktiv">Aktiv</SelectItem>
-                            <SelectItem value="Inaktiv">Inaktiv</SelectItem>
-                        </SelectContent>
-                      </Select>
-                </CardContent>
-            ) : (
-                <>
-                    <CardHeader>
-                        <div className="flex justify-between items-start">
-                            <div>
-                            <CardTitle className="text-xl font-bold text-gray-800">{project.name}</CardTitle>
-                            <p className="text-sm text-gray-500">{project.industry}</p>
-                            </div>
-                            <Badge className={`${getStatusColor(project.status)} text-white`}>{project.status}</Badge>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4 flex-grow">
+            <CardContent className="p-6 space-y-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-xl font-semibold">{project.name}</h3>
+                  <p className="text-sm text-gray-500">{project.industry}</p>
+                </div>
+                <Badge className={getStatusColor(project.status)}>{project.status}</Badge>
+              </div>
+              
+              {project.assignedTo && (
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Users className="w-4 h-4" />
+                  <span>Zugewiesen an: {project.assignedTo}</span>
+                </div>
+              )}
+              
+              {project.description && (
+                <p className="text-sm text-gray-600 line-clamp-2">{project.description}</p>
+              )}
+              
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Target className="w-4 h-4" />
+                <span>{projectDeals.filter(deal => deal.companyId === project.id).length} Deals</span>
+              </div>
+              
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Users className="w-4 h-4" />
+                <span>{projectContacts.filter(contact => contact.companyId === project.id).length} Kontakte</span>
+              </div>
+            </CardContent>
+            
+            <div className="border-t p-4 flex justify-between items-center bg-gray-50">
+              {editingProjectId === project.id && editedProject ? (
+                <div className="space-y-4 p-4 border rounded-lg bg-white">
+                    <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-600">Deals:</span>
-                            {/* This will be incorrect until details are fetched, but is a good indicator */}
-                            <span className="font-medium">{projectDeals.filter(d => d.companyId === project.id).length}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-600">Gesamtwert:</span>
-                            <span className="font-semibold text-green-600">{formatCurrency(projectDeals.filter(d => d.companyId === project.id).reduce((acc, deal) => acc + deal.value, 0))}</span>
-                            </div>
+                            <Label htmlFor={`edit-name-${project.id}`}>Projektname</Label>
+                            <Input
+                                id={`edit-name-${project.id}`}
+                                value={editedProject.name}
+                                onChange={(e) => setEditedProject({ ...editedProject, name: e.target.value })}
+                            />
                         </div>
-                    </CardContent>
-                </>
-            )}
-
-            <div className="border-t p-4 flex justify-between items-center">
-                {editingProjectId === project.id ? (
-                    <div className="flex gap-2">
-                        <Button onClick={handleSaveEdit} size="sm"><Save className="w-4 h-4 mr-2" /> Speichern</Button>
-                        <Button variant="ghost" onClick={handleCancelEdit} size="sm"><X className="w-4 h-4 mr-2" /> Abbrechen</Button>
+                        <div className="space-y-2">
+                            <Label htmlFor={`edit-industry-${project.id}`}>Branche</Label>
+                            <Input
+                                id={`edit-industry-${project.id}`}
+                                value={editedProject.industry}
+                                onChange={(e) => setEditedProject({ ...editedProject, industry: e.target.value })}
+                            />
+                        </div>
                     </div>
-                ) : (
-                    <Button onClick={() => handleEditClick(project)} variant="outline" size="sm">
-                        <Edit className="w-4 h-4 mr-2" /> Bearbeiten
-                    </Button>
-                )}
-                 <Button 
-                    onClick={() => setSelectedProject(project)} 
-                    variant="default"
-                    size="sm"
-                    >
-                    <Eye className="w-4 h-4 mr-2" /> Details
+                    <div className="space-y-2">
+                        <Label htmlFor={`edit-assignedTo-${project.id}`}>Zugewiesen an</Label>
+                        <Select
+                            value={editedProject.assignedTo}
+                            onValueChange={(value) => setEditedProject({ ...editedProject, assignedTo: value })}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder="Mitarbeiter auswählen" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {employees.map((employee) => (
+                                    <SelectItem key={employee} value={employee}>
+                                        {employee}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor={`edit-description-${project.id}`}>Projektbeschreibung</Label>
+                        <Textarea
+                            id={`edit-description-${project.id}`}
+                            value={editedProject.description}
+                            onChange={(e) => setEditedProject({ ...editedProject, description: e.target.value })}
+                            rows={3}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor={`edit-address-${project.id}`}>Adresse</Label>
+                        <Input
+                            id={`edit-address-${project.id}`}
+                            value={editedProject.address}
+                            onChange={(e) => setEditedProject({ ...editedProject, address: e.target.value })}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor={`edit-notes-${project.id}`}>Notizen</Label>
+                        <Textarea
+                            id={`edit-notes-${project.id}`}
+                            value={editedProject.notes}
+                            onChange={(e) => setEditedProject({ ...editedProject, notes: e.target.value })}
+                            rows={3}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Deals</Label>
+                        <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 border rounded-md">
+                            {allDeals.map((deal) => (
+                                <div key={deal.id} className="flex items-center space-x-2">
+                                    <Checkbox
+                                        id={`edit-deal-${project.id}-${deal.id}`}
+                                        checked={editedProject.deals.includes(deal.id)}
+                                        onCheckedChange={(checked) => {
+                                            const updatedDeals = checked
+                                                ? [...editedProject.deals, deal.id]
+                                                : editedProject.deals.filter(id => id !== deal.id);
+                                            setEditedProject({ ...editedProject, deals: updatedDeals });
+                                        }}
+                                    />
+                                    <Label htmlFor={`edit-deal-${project.id}-${deal.id}`} className="text-sm">
+                                        {deal.title} ({deal.value}€)
+                                    </Label>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Kontakte</Label>
+                        <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 border rounded-md">
+                            {allContacts.map((contact) => (
+                                <div key={contact.id} className="flex items-center space-x-2">
+                                    <Checkbox
+                                        id={`edit-contact-${project.id}-${contact.id}`}
+                                        checked={editedProject.contacts.includes(contact.id)}
+                                        onCheckedChange={(checked) => {
+                                            const updatedContacts = checked
+                                                ? [...editedProject.contacts, contact.id]
+                                                : editedProject.contacts.filter(id => id !== contact.id);
+                                            setEditedProject({ ...editedProject, contacts: updatedContacts });
+                                        }}
+                                    />
+                                    <Label htmlFor={`edit-contact-${project.id}-${contact.id}`} className="text-sm">
+                                        {contact.name} ({contact.type})
+                                    </Label>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor={`edit-status-${project.id}`}>Status</Label>
+                        <Select
+                            value={editedProject.status}
+                            onValueChange={(value) => setEditedProject({ ...editedProject, status: value })}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder="Status auswählen" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Lead">Lead</SelectItem>
+                                <SelectItem value="Aktiv">Aktiv</SelectItem>
+                                <SelectItem value="Inaktiv">Inaktiv</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="flex justify-end space-x-2">
+                        <Button variant="outline" onClick={() => setEditingProjectId(null)}>
+                            Abbrechen
+                        </Button>
+                        <Button onClick={() => handleSaveEdit()}>Speichern</Button>
+                    </div>
+                </div>
+              ) : (
+                <Button onClick={() => handleEditClick(project)} variant="outline" size="sm">
+                  <Edit className="w-4 h-4 mr-2" /> Bearbeiten
                 </Button>
+              )}
+              <Button 
+                onClick={() => setSelectedProject(project)} 
+                variant="default"
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Eye className="w-4 h-4 mr-2" /> Details
+              </Button>
             </div>
           </Card>
         ))}
@@ -396,64 +662,173 @@ const ProjectList = () => {
           <Dialog open={!!selectedProject} onOpenChange={() => setSelectedProject(null)}>
               <DialogContent className="max-w-4xl">
                   <DialogHeader>
-                      <DialogTitle>{selectedProject.name}</DialogTitle>
-                      <DialogDescription>{selectedProject.address}</DialogDescription>
+                      <div className="flex justify-between items-start">
+                          <div>
+                              <DialogTitle className="text-2xl font-bold">{selectedProject.name}</DialogTitle>
+                              <DialogDescription className="text-base mt-2">
+                                  {selectedProject.industry} • {selectedProject.address}
+                              </DialogDescription>
+                          </div>
+                          <Badge className={`${getStatusColor(selectedProject.status)} text-white text-sm px-3 py-1`}>
+                              {selectedProject.status}
+                          </Badge>
+                      </div>
+                      {selectedProject.assignedTo && (
+                          <div className="flex items-center gap-2 mt-2 text-sm text-gray-600">
+                              <Users className="w-4 h-4" />
+                              <span>Zugewiesen an: {selectedProject.assignedTo}</span>
+                          </div>
+                      )}
                   </DialogHeader>
-                  <Tabs defaultValue="deals" className="pt-4">
-                      <TabsList>
+                  
+                  <Tabs defaultValue="overview" className="pt-4">
+                      <TabsList className="grid grid-cols-4 mb-4">
+                          <TabsTrigger value="overview">Übersicht</TabsTrigger>
                           <TabsTrigger value="deals">Deals ({projectDeals.length})</TabsTrigger>
                           <TabsTrigger value="contacts">Kontakte ({projectContacts.length})</TabsTrigger>
                           <TabsTrigger value="notes">Notizen</TabsTrigger>
                       </TabsList>
+                      
+                      <TabsContent value="overview" className="space-y-4">
+                          {selectedProject.description && (
+                              <div className="bg-gray-50 p-4 rounded-lg">
+                                  <h3 className="font-semibold mb-2">Projektbeschreibung</h3>
+                                  <p className="text-gray-600 whitespace-pre-wrap">{selectedProject.description}</p>
+                              </div>
+                          )}
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                              <Card>
+                                  <CardHeader>
+                                      <CardTitle className="text-lg flex items-center gap-2">
+                                          <Target className="w-5 h-5" />
+                                          Deals Übersicht
+                                      </CardTitle>
+                                  </CardHeader>
+                                  <CardContent>
+                                      <div className="space-y-2">
+                                          <div className="flex justify-between">
+                                              <span className="text-gray-600">Anzahl Deals:</span>
+                                              <span className="font-semibold">{projectDeals.length}</span>
+                                          </div>
+                                          <div className="flex justify-between">
+                                              <span className="text-gray-600">Gesamtwert:</span>
+                                              <span className="font-semibold text-green-600">
+                                                  {formatCurrency(projectDeals.reduce((acc, deal) => acc + deal.value, 0))}
+                                              </span>
+                                          </div>
+                                      </div>
+                                  </CardContent>
+                              </Card>
+                              
+                              <Card>
+                                  <CardHeader>
+                                      <CardTitle className="text-lg flex items-center gap-2">
+                                          <Users className="w-5 h-5" />
+                                          Kontakte Übersicht
+                                      </CardTitle>
+                                  </CardHeader>
+                                  <CardContent>
+                                      <div className="space-y-2">
+                                          <div className="flex justify-between">
+                                              <span className="text-gray-600">Anzahl Kontakte:</span>
+                                              <span className="font-semibold">{projectContacts.length}</span>
+                                          </div>
+                                          <div className="flex justify-between">
+                                              <span className="text-gray-600">Primäre Kontakte:</span>
+                                              <span className="font-semibold">
+                                                  {projectContacts.filter(c => c.type === 'Primary').length}
+                                              </span>
+                                          </div>
+                                      </div>
+                                  </CardContent>
+                              </Card>
+                          </div>
+                      </TabsContent>
+                      
                       <TabsContent value="deals">
                           <div className="flex justify-end mb-4">
-                                <Button size="sm" onClick={() => handleOpenNewDeal(selectedProject.id)}>
-                                    <Plus className="w-4 h-4 mr-2" />
-                                    Neuer Deal
-                                </Button>
+                              <Button size="sm" onClick={() => handleOpenNewDeal(selectedProject.id)}>
+                                  <Plus className="w-4 h-4 mr-2" />
+                                  Neuer Deal
+                              </Button>
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 max-h-[50vh] overflow-y-auto p-1">
-                            {projectDeals.map((deal) => (
-                              <Card key={deal.id}>
-                                <CardHeader>
-                                  <CardTitle className="text-lg">{deal.title}</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className={`text-sm font-semibold p-2 rounded-md ${getPhaseColor(deal.phase)} text-white text-center`}>
-                                        {deal.phase}
-                                    </div>
-                                    <div className="text-lg font-bold mt-2 text-center">{formatCurrency(deal.value)}</div>
-                                </CardContent>
-                              </Card>
-                            ))}
+                              {projectDeals.map((deal) => (
+                                  <Card key={deal.id} className="hover:shadow-md transition-shadow">
+                                      <CardHeader>
+                                          <div className="flex justify-between items-start">
+                                              <CardTitle className="text-lg">{deal.title}</CardTitle>
+                                              <Badge className={`${getPhaseColor(deal.phase)} text-white`}>
+                                                  {deal.phase}
+                                              </Badge>
+                                          </div>
+                                      </CardHeader>
+                                      <CardContent>
+                                          <div className="space-y-2">
+                                              <div className="flex justify-between items-center">
+                                                  <span className="text-gray-600">Wert:</span>
+                                                  <span className="text-lg font-bold text-green-600">
+                                                      {formatCurrency(deal.value)}
+                                                  </span>
+                                              </div>
+                                              {deal.assignedTo && (
+                                                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                      <Users className="w-4 h-4" />
+                                                      <span>{deal.assignedTo}</span>
+                                                  </div>
+                                              )}
+                                              {deal.closeDate && (
+                                                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                      <Calendar className="w-4 h-4" />
+                                                      <span>Abschluss: {new Date(deal.closeDate).toLocaleDateString()}</span>
+                                                  </div>
+                                              )}
+                                          </div>
+                                      </CardContent>
+                                  </Card>
+                              ))}
                           </div>
                       </TabsContent>
+                      
                       <TabsContent value="contacts">
-                        <div className="flex justify-end mb-4">
-                            <Button size="sm" onClick={() => handleOpenNewContact(selectedProject.id)}>
-                                <Plus className="w-4 h-4 mr-2" />
-                                Neuer Kontakt
-                            </Button>
-                        </div>
-                        <div className="space-y-2 mt-4 max-h-[50vh] overflow-y-auto p-1">
-                            {projectContacts.map(contact => (
-                                <Card key={contact.id}>
-                                    <CardContent className="p-4 flex justify-between items-center">
-                                        <div>
-                                            <p className="font-semibold">{contact.name}</p>
-                                            <p className="text-sm text-gray-500">{contact.position}</p>
-                                        </div>
-                                        <div className="text-sm">
-                                            <p>{contact.email}</p>
-                                            <p>{contact.phone}</p>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
+                          <div className="flex justify-end mb-4">
+                              <Button size="sm" onClick={() => handleOpenNewContact(selectedProject.id)}>
+                                  <Plus className="w-4 h-4 mr-2" />
+                                  Neuer Kontakt
+                              </Button>
+                          </div>
+                          <div className="space-y-2 mt-4 max-h-[50vh] overflow-y-auto p-1">
+                              {projectContacts.map(contact => (
+                                  <Card key={contact.id} className="hover:shadow-md transition-shadow">
+                                      <CardContent className="p-4">
+                                          <div className="flex justify-between items-start">
+                                              <div>
+                                                  <h3 className="font-semibold text-lg">{contact.name}</h3>
+                                                  <p className="text-sm text-gray-500">{contact.position}</p>
+                                                  <div className="mt-2 space-y-1">
+                                                      <p className="text-sm text-gray-600 flex items-center gap-2">
+                                                          <Mail className="w-4 h-4" />
+                                                          {contact.email}
+                                                      </p>
+                                                      <p className="text-sm text-gray-600 flex items-center gap-2">
+                                                          <Phone className="w-4 h-4" />
+                                                          {contact.phone}
+                                                      </p>
+                                                  </div>
+                                              </div>
+                                              <Badge variant="outline">{contact.type}</Badge>
+                                          </div>
+                                      </CardContent>
+                                  </Card>
+                              ))}
+                          </div>
                       </TabsContent>
+                      
                       <TabsContent value="notes">
-                        <p className="text-gray-600 p-4">{selectedProject.notes}</p>
+                          <div className="bg-gray-50 p-4 rounded-lg">
+                              <p className="text-gray-600 whitespace-pre-wrap">{selectedProject.notes}</p>
+                          </div>
                       </TabsContent>
                   </Tabs>
               </DialogContent>
@@ -464,6 +839,9 @@ const ProjectList = () => {
         <DialogContent className="max-w-2xl">
             <DialogHeader>
                 <DialogTitle>Neuen Deal für {selectedProject?.name} erstellen</DialogTitle>
+                <DialogDescription>
+                    Erstellen Sie einen neuen Deal und fügen Sie Details wie Wert, Phase und Zuständigkeit hinzu.
+                </DialogDescription>
             </DialogHeader>
             <div className="grid grid-cols-2 gap-4 py-4">
                 <div>
@@ -516,6 +894,9 @@ const ProjectList = () => {
         <DialogContent>
             <DialogHeader>
                 <DialogTitle>Neuen Kontakt für {selectedProject?.name} erstellen</DialogTitle>
+                <DialogDescription>
+                    Erstellen Sie einen neuen Kontakt und fügen Sie Kontaktdaten wie Name, Position und Kontaktinformationen hinzu.
+                </DialogDescription>
             </DialogHeader>
             <div className="grid grid-cols-2 gap-4 py-4">
                 <div>

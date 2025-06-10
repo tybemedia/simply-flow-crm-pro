@@ -29,86 +29,77 @@ async function setupDatabase() {
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255),
         phone VARCHAR(50),
-        company VARCHAR(255),
-        position VARCHAR(255),
         type VARCHAR(50),
-        description TEXT,
-        tags JSONB
+        notes TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `);
     console.log('"contacts" table created successfully.');
 
-    // Add company_id column to contacts if it doesn't exist
-    const checkColumnQuery = `
-      SELECT column_name 
-      FROM information_schema.columns 
-      WHERE table_name='contacts' AND column_name='company_id';
-    `;
-    const { rows } = await client.query(checkColumnQuery);
-    if (rows.length === 0) {
-      console.log('Adding "company_id" to "contacts" table...');
-      await client.query(`ALTER TABLE contacts ADD COLUMN company_id INTEGER REFERENCES companies(id) ON DELETE SET NULL;`);
-      console.log('"company_id" column added.');
-    }
-
-    // Drop the old company column if it exists
-    const checkOldColumnQuery = `
-      SELECT column_name
-      FROM information_schema.columns
-      WHERE table_name='contacts' AND column_name='company';
-    `;
-    const oldColumnResult = await client.query(checkOldColumnQuery);
-    if (oldColumnResult.rows.length > 0) {
-        console.log('Dropping old "company" column from "contacts" table...');
-        await client.query('ALTER TABLE contacts DROP COLUMN company;');
-        console.log('"company" column dropped.');
-    }
-
-    console.log('Creating "contact_comments" table...');
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS contact_comments (
-        id SERIAL PRIMARY KEY,
-        contact_id INTEGER REFERENCES contacts(id) ON DELETE CASCADE,
-        author VARCHAR(255),
-        text TEXT,
-        timestamp TIMESTAMPTZ DEFAULT NOW()
-      );
-    `);
-    console.log('"contact_comments" table created successfully.');
-
     console.log('Creating "companies" table...');
     await client.query(`
-        CREATE TABLE IF NOT EXISTS companies (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            industry VARCHAR(255),
-            status VARCHAR(50),
-            address TEXT,
-            notes TEXT
-        );
+      DROP TABLE IF EXISTS companies CASCADE;
+      CREATE TABLE companies (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        industry VARCHAR(255),
+        status VARCHAR(50),
+        address TEXT,
+        notes TEXT,
+        assigned_to VARCHAR(255),
+        description TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
     `);
     console.log('"companies" table created successfully.');
 
     console.log('Creating "deals" table...');
     await client.query(`
-        CREATE TABLE IF NOT EXISTS deals (
-            id SERIAL PRIMARY KEY,
-            title VARCHAR(255) NOT NULL,
-            company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-            value NUMERIC(12, 2) NOT NULL,
-            phase VARCHAR(50) NOT NULL,
-            status VARCHAR(50) NOT NULL,
-            close_date DATE NOT NULL,
-            description TEXT,
-            assigned_to VARCHAR(255) NOT NULL,
-            salesperson VARCHAR(255),
-            commission_percentage INTEGER DEFAULT 0,
-            probability INTEGER,
-            updated_at DATE,
-            expiration_date DATE
-        );
+      CREATE TABLE IF NOT EXISTS deals (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        value DECIMAL(10,2),
+        status VARCHAR(50),
+        assigned_to VARCHAR(255),
+        close_date DATE,
+        notes TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
     `);
     console.log('"deals" table created successfully.');
+
+    console.log('Creating "company_contacts" junction table...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS company_contacts (
+        company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+        contact_id INTEGER REFERENCES contacts(id) ON DELETE CASCADE,
+        PRIMARY KEY (company_id, contact_id)
+      );
+    `);
+    console.log('"company_contacts" table created successfully.');
+
+    console.log('Creating "company_deals" junction table...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS company_deals (
+        company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+        deal_id INTEGER REFERENCES deals(id) ON DELETE CASCADE,
+        PRIMARY KEY (company_id, deal_id)
+      );
+    `);
+    console.log('"company_deals" table created successfully.');
+
+    // Add indexes for better performance
+    console.log('Creating indexes...');
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_company_contacts_company_id ON company_contacts(company_id);
+      CREATE INDEX IF NOT EXISTS idx_company_contacts_contact_id ON company_contacts(contact_id);
+      CREATE INDEX IF NOT EXISTS idx_company_deals_company_id ON company_deals(company_id);
+      CREATE INDEX IF NOT EXISTS idx_company_deals_deal_id ON company_deals(deal_id);
+    `);
+    console.log('Indexes created successfully.');
 
   } catch (err) {
     console.error('Error setting up the database:', err);

@@ -7,13 +7,14 @@
     "dev": "concurrently \"npm:dev:client\" \"npm:dev:server\"",
     "dev:client": "vite",
     "predev:server": "tsc -p tsconfig.node.json",
-"dev:server": "nodemon --watch server --ext ts --exec \"npm run predev:server && node server/dist/index.js\"",
+    "dev:server": "nodemon --watch server --ext ts --exec \"npm run predev:server && node server/dist/index.js\"",
     "build": "tsc && vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "db:setup": "ts-node server/setup_database.ts",
-    "db:seed": "ts-node server/seed.ts"
+    "db:seed": "ts-node server/seed.ts",
+    "db:migrate": "ts-node server/run_migration.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

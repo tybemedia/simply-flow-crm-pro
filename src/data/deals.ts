@@ -93,6 +93,31 @@ export const getTotalDealValue = (): number => {
   return deals.reduce((sum, deal) => sum + deal.value, 0);
 };
 
+export const getTotalRevenueWithCommissions = (): { total: number, byEmployee: Record<string, number> } => {
+  const employeeRevenue: Record<string, number> = {};
+  
+  deals.forEach(deal => {
+    // Add full value to assigned person
+    employeeRevenue[deal.assignedTo] = (employeeRevenue[deal.assignedTo] || 0) + deal.value;
+    
+    // If there's a salesperson with commission, adjust the values
+    if (deal.salesperson && deal.commissionPercentage > 0) {
+      const commissionAmount = (deal.value * deal.commissionPercentage) / 100;
+      // Add commission to salesperson
+      employeeRevenue[deal.salesperson] = (employeeRevenue[deal.salesperson] || 0) + commissionAmount;
+      // Subtract commission from assigned person
+      employeeRevenue[deal.assignedTo] = (employeeRevenue[deal.assignedTo] || 0) - commissionAmount;
+    }
+  });
+
+  const total = Object.values(employeeRevenue).reduce((sum, value) => sum + value, 0);
+  
+  return {
+    total,
+    byEmployee: employeeRevenue
+  };
+};
+
 export const getDealsByDateRange = (startDate: string, endDate: string) => 
   deals.filter(deal => 
     deal.createdAt >= startDate && deal.createdAt <= endDate
