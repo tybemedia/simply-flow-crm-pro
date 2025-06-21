@@ -7,9 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Play, Pause, Clock, Calendar, User, AlertTriangle, CheckCircle2, Building, Settings } from 'lucide-react';
+import { Plus, Play, Pause, Clock, Calendar, User, AlertTriangle, CheckCircle2, Building, Settings, Pencil } from 'lucide-react';
 import TaskEditDialog from './TaskEditDialog';
 import { getEmployeeNames } from '../data/employees';
+import * as LucideIcons from 'lucide-react';
 
 // Define Task type directly in the component
 export interface Task {
@@ -36,13 +37,25 @@ export interface Task {
 
 const TaskManager = () => {
   const [columns, setColumns] = useState([
-    { id: 'general', title: 'Allgemein', color: 'bg-gray-500' },
-    { id: 'webdesign', title: 'Webdesign', color: 'bg-blue-500' },
-    { id: 'media', title: 'Medien', color: 'bg-purple-500' },
-    { id: 'ideas', title: 'Projektideen', color: 'bg-green-500' }
+    // Initial state will be replaced by backend fetch
   ]);
 
   const [tasks, setTasks] = useState<Task[]>([]);
+
+  useEffect(() => {
+    // Fetch columns from backend
+    const fetchColumns = async () => {
+      try {
+        const response = await fetch('/api/columns');
+        const data = await response.json();
+        setColumns(data);
+      } catch (error) {
+        console.error('Failed to fetch columns:', error);
+      }
+    };
+    fetchColumns();
+    getEmployeeNames().then(setEmployees);
+  }, []);
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -85,9 +98,9 @@ const TaskManager = () => {
     estimatedHours: 0
   });
 
-  useEffect(() => {
-    getEmployeeNames().then(setEmployees);
-  }, []);
+  const [isEditColumnDialogOpen, setIsEditColumnDialogOpen] = useState(false);
+  const [editingColumn, setEditingColumn] = useState(null);
+  const [editColumnData, setEditColumnData] = useState({ title: '', color: '', icon: '' });
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -170,15 +183,26 @@ const TaskManager = () => {
     }
   };
 
-  const addColumn = () => {
+  const addColumn = async () => {
     if (newColumnTitle.trim()) {
       const newColumn = {
         id: `column_${Date.now()}`,
         title: newColumnTitle.trim(),
         color: 'bg-indigo-500'
       };
-      setColumns([...columns, newColumn]);
-      setNewColumnTitle("");
+      try {
+        const response = await fetch('/api/columns', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newColumn)
+        });
+        if (!response.ok) throw new Error('Failed to create column');
+        const createdColumn = await response.json();
+        setColumns([...columns, createdColumn]);
+        setNewColumnTitle("");
+      } catch (error) {
+        console.error('Error creating column:', error);
+      }
     }
   };
 
@@ -346,6 +370,54 @@ const TaskManager = () => {
     }
   };
 
+  // Derive unique customers from tasks
+  const customers = Array.from(new Set(tasks.map(t => t.customer).filter(Boolean)));
+
+  const openEditColumnDialog = (column) => {
+    setEditingColumn(column);
+    setEditColumnData({ title: column.title, color: column.color, icon: column.icon });
+    setIsEditColumnDialogOpen(true);
+  };
+
+  const isValidIcon = iconName => {
+    const icon = LucideIcons[iconName];
+    return (
+      (typeof icon === 'function') ||
+      (typeof icon === 'object' && typeof icon.render === 'function')
+    );
+  };
+
+  const handleEditColumnSave = async () => {
+    if (!editingColumn) return;
+    // Validate icon before saving
+    const icon = isValidIcon(editColumnData.icon) ? editColumnData.icon : 'Folder';
+    const updatedColumn = { ...editingColumn, ...editColumnData, icon };
+    try {
+      const response = await fetch(`/api/columns/${editingColumn.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedColumn),
+      });
+      if (!response.ok) throw new Error('Failed to update column');
+      const updated = await response.json();
+      setColumns(columns.map(col => col.id === updated.id ? updated : col));
+      setIsEditColumnDialogOpen(false);
+      setEditingColumn(null);
+    } catch (error) {
+      console.error('Error updating column:', error);
+    }
+  };
+
+  // Helper to get a valid Lucide icon function component (never a React element)
+  const getLucideIcon = (iconName) => {
+    const icon = LucideIcons[iconName];
+    if (!icon) return LucideIcons['Folder'];
+    // Lucide v0.300+ exports: { $$typeof, render }
+    if (typeof icon === 'function') return icon;
+    if (typeof icon === 'object' && typeof icon.render === 'function') return icon.render;
+    return LucideIcons['Folder'];
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -478,6 +550,7 @@ const TaskManager = () => {
       <div className="flex gap-6 overflow-x-auto pb-6">
         {columns.map((column) => {
           const columnTasks = getTasksForColumn(column.id);
+          const IconComponent = getLucideIcon(column.icon);
           
           return (
             <div 
@@ -487,13 +560,13 @@ const TaskManager = () => {
               onDrop={(e) => handleDrop(e, column.id)}
             >
               <Card className="h-full">
-                <CardHeader className={`${column.color} text-white rounded-t-lg`}>
-                  <CardTitle className="text-lg flex items-center justify-between">
-                    {column.title}
-                    <Badge variant="secondary" className="bg-white text-gray-800">
-                      {columnTasks.length}
-                    </Badge>
-                  </CardTitle>
+                <CardHeader style={{ backgroundColor: column.color }} className={"text-white rounded-t-lg flex justify-between items-center"}>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-lg">{column.title}</CardTitle>
+                  </div>
+                  <Button size="icon" variant="ghost" onClick={() => openEditColumnDialog(column)}>
+                    <Pencil className="w-4 h-4" />
+                  </Button>
                 </CardHeader>
                 <CardContent className="p-4 space-y-4 min-h-96">
                   {columnTasks.map((task) => {
@@ -603,7 +676,40 @@ const TaskManager = () => {
         onClose={() => setIsTaskDialogOpen(false)}
         onSave={handleTaskSave}
         onDelete={handleDeleteTask}
+        columns={columns}
+        customers={customers}
       />
+
+      <Dialog open={isEditColumnDialogOpen} onOpenChange={setIsEditColumnDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Spalte bearbeiten</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="editColumnTitle">Titel</Label>
+              <Input
+                id="editColumnTitle"
+                value={editColumnData.title}
+                onChange={e => setEditColumnData({ ...editColumnData, title: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="editColumnColor">Farbe (Hex Code)</Label>
+              <Input
+                id="editColumnColor"
+                type="color"
+                value={editColumnData.color}
+                onChange={e => setEditColumnData({ ...editColumnData, color: e.target.value })}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsEditColumnDialogOpen(false)}>Abbrechen</Button>
+              <Button onClick={handleEditColumnSave}>Speichern</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

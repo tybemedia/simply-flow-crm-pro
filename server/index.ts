@@ -5,6 +5,7 @@ import { getTasks, createTask, updateTask, deleteTask } from './api/tasks.js';
 import { getContacts, createContact, updateContact, deleteContact, getCommentsForContact, addCommentToContact } from './api/contacts.js';
 import { getCompanies, createCompany, updateCompany } from './api/companies.js';
 import { getDeals, createDeal, updateDeal, deleteDeal } from './api/deals.js';
+import { getColumns, createColumn, updateColumn } from './api/columns.js';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -259,6 +260,36 @@ app.delete('/api/deals/:id', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).send('Error deleting deal');
+  }
+});
+
+app.get('/api/columns', async (req, res) => {
+  try {
+    const columns = await getColumns();
+    res.json(columns);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Error fetching columns');
+  }
+});
+
+app.post('/api/columns', async (req, res) => {
+  try {
+    const newColumn = await createColumn(req.body);
+    res.status(201).json(newColumn);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Error creating column');
+  }
+});
+
+app.put('/api/columns/:id', async (req, res) => {
+  try {
+    const updated = await updateColumn(req.params.id, req.body);
+    res.json(updated);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Error updating column');
   }
 });
 

@@ -79,4 +79,12 @@ CREATE TABLE IF NOT EXISTS time_entries (
     date DATE NOT NULL,
     description TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create columns table for Kanban board
+CREATE TABLE IF NOT EXISTS columns (
+    id VARCHAR(100) PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    color VARCHAR(50) NOT NULL,
+    icon VARCHAR(100) NOT NULL
 ); 

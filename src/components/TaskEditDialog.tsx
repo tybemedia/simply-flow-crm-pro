@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { User, Building, Calendar, Clock, MessageSquare, Send, Trash2 } from 'lucide-react';
+import { User, Building, Calendar, Clock, MessageSquare, Send, Trash2, Settings } from 'lucide-react';
 import { getEmployeeNames } from '../data/employees';
 
 interface Task {
@@ -36,9 +36,11 @@ interface TaskEditDialogProps {
   onClose: () => void;
   onSave: (task: Task) => void;
   onDelete: (taskId: number) => void;
+  columns: { id: string; title: string; color: string }[];
+  customers: string[];
 }
 
-const TaskEditDialog = ({ task, isOpen, onClose, onSave, onDelete }: TaskEditDialogProps) => {
+const TaskEditDialog = ({ task, isOpen, onClose, onSave, onDelete, columns, customers }: TaskEditDialogProps) => {
   const [editedTask, setEditedTask] = useState<Task | null>(null);
   const [newComment, setNewComment] = useState("");
   const [employees, setEmployees] = useState<string[]>([]);
@@ -101,10 +103,21 @@ const TaskEditDialog = ({ task, isOpen, onClose, onSave, onDelete }: TaskEditDia
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <span>Aufgabe bearbeiten</span>
-            <Badge className="bg-blue-500 text-white">{editedTask.priority}</Badge>
+            <Select
+              value={editedTask.priority}
+              onValueChange={value => setEditedTask({ ...editedTask, priority: value })}
+            >
+              <SelectTrigger className="w-32">
+                <SelectValue placeholder="Priorität" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Hoch">Hoch</SelectItem>
+                <SelectItem value="Mittel">Mittel</SelectItem>
+                <SelectItem value="Niedrig">Niedrig</SelectItem>
+              </SelectContent>
+            </Select>
           </DialogTitle>
         </DialogHeader>
-
         <div className="grid grid-cols-3 gap-6">
           {/* Linke Spalte - Hauptdaten */}
           <div className="col-span-2 space-y-4">
@@ -116,7 +129,6 @@ const TaskEditDialog = ({ task, isOpen, onClose, onSave, onDelete }: TaskEditDia
                 onChange={(e) => setEditedTask({...editedTask, title: e.target.value})}
               />
             </div>
-
             <div>
               <Label htmlFor="description">Beschreibung</Label>
               <Textarea
@@ -126,14 +138,12 @@ const TaskEditDialog = ({ task, isOpen, onClose, onSave, onDelete }: TaskEditDia
                 rows={4}
               />
             </div>
-
             {/* Kommentare Sektion */}
             <div>
               <Label className="flex items-center gap-2">
                 <MessageSquare className="w-4 h-4" />
                 Kommentare ({editedTask.comments?.length || 0})
               </Label>
-              
               <div className="mt-2 space-y-3 max-h-60 overflow-y-auto">
                 {editedTask.comments?.map((comment) => (
                   <div key={comment.id} className="bg-gray-50 p-3 rounded-lg">
@@ -145,7 +155,6 @@ const TaskEditDialog = ({ task, isOpen, onClose, onSave, onDelete }: TaskEditDia
                   </div>
                 )) || <p className="text-gray-500 text-sm">Keine Kommentare vorhanden</p>}
               </div>
-
               <div className="mt-3 flex gap-2">
                 <Textarea
                   placeholder="Kommentar hinzufügen..."
@@ -160,7 +169,6 @@ const TaskEditDialog = ({ task, isOpen, onClose, onSave, onDelete }: TaskEditDia
               </div>
             </div>
           </div>
-
           {/* Rechte Spalte - Metadaten */}
           <div className="space-y-4">
             <div className="bg-gray-50 p-4 rounded-lg space-y-3">
@@ -183,17 +191,45 @@ const TaskEditDialog = ({ task, isOpen, onClose, onSave, onDelete }: TaskEditDia
                   </SelectContent>
                 </Select>
               </div>
-
-              {editedTask.customer && (
-                <div className="flex items-center gap-2 text-sm">
+              <div className="space-y-2">
+                <Label htmlFor="customer" className="flex items-center gap-2 text-sm">
                   <Building className="w-4 h-4 text-gray-500" />
-                  <span className="text-gray-600">Kunde:</span>
-                  <span className="font-medium text-blue-600 cursor-pointer hover:underline">
-                    {editedTask.customer}
-                  </span>
-                </div>
-              )}
-
+                  <span>Kunde:</span>
+                </Label>
+                <Select
+                  value={editedTask.customer || ''}
+                  onValueChange={value => setEditedTask({ ...editedTask, customer: value === 'none' ? null : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Kunde auswählen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Kein Kunde</SelectItem>
+                    {customers.map(customer => (
+                      <SelectItem key={customer} value={customer}>{customer}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="columnId" className="flex items-center gap-2 text-sm">
+                  <Settings className="w-4 h-4 text-gray-500" />
+                  <span>Spalte:</span>
+                </Label>
+                <Select
+                  value={editedTask.columnId}
+                  onValueChange={value => setEditedTask({ ...editedTask, columnId: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Spalte auswählen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {columns.map(column => (
+                      <SelectItem key={column.id} value={column.id}>{column.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="deadline" className="flex items-center gap-2 text-sm">
                   <Calendar className="w-4 h-4 text-gray-500" />
@@ -206,7 +242,18 @@ const TaskEditDialog = ({ task, isOpen, onClose, onSave, onDelete }: TaskEditDia
                   onChange={(e) => setEditedTask({...editedTask, deadline: e.target.value})}
                 />
               </div>
-
+              <div className="space-y-2">
+                <Label htmlFor="estimatedHours" className="flex items-center gap-2 text-sm">
+                  <Clock className="w-4 h-4 text-gray-500" />
+                  <span>Geschätzte Stunden:</span>
+                </Label>
+                <Input
+                  id="estimatedHours"
+                  type="number"
+                  value={editedTask.estimatedHours}
+                  onChange={e => setEditedTask({ ...editedTask, estimatedHours: Number(e.target.value) })}
+                />
+              </div>
               <div className="flex items-center gap-2 text-sm">
                 <Clock className="w-4 h-4 text-gray-500" />
                 <span className="text-gray-600">Zeit:</span>
@@ -214,7 +261,6 @@ const TaskEditDialog = ({ task, isOpen, onClose, onSave, onDelete }: TaskEditDia
                   {formatTime(editedTask.trackedTime)} / {formatTime(editedTask.estimatedHours)}
                 </span>
               </div>
-
               <div className="space-y-1">
                 <div className="flex justify-between text-xs text-gray-600">
                   <span>Fortschritt</span>
@@ -230,7 +276,6 @@ const TaskEditDialog = ({ task, isOpen, onClose, onSave, onDelete }: TaskEditDia
             </div>
           </div>
         </div>
-
         <div className="flex justify-between gap-2 pt-4 border-t">
           <Button variant="destructive" onClick={handleDelete} className="mr-auto">
             <Trash2 className="w-4 h-4 mr-2" />

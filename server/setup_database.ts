@@ -91,6 +91,17 @@ async function setupDatabase() {
     `);
     console.log('"company_deals" table created successfully.');
 
+    console.log('Creating "columns" table...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS columns (
+        id VARCHAR(100) PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        color VARCHAR(50) NOT NULL,
+        icon VARCHAR(100) NOT NULL
+      );
+    `);
+    console.log('"columns" table created successfully.');
+
     // Add indexes for better performance
     console.log('Creating indexes...');
     await client.query(`
